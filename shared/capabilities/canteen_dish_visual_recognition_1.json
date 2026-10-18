@@ -1,0 +1,36 @@
+{
+  "id": "canteen_dish_visual_recognition_1",
+  "pluginKey": "@official-plugins/ai-image-understanding",
+  "pluginVersion": "1.0.22",
+  "name": "食堂菜品视觉识别",
+  "description": "用户上传食堂菜品照片，多模态模型返回候选菜名、份量档、置信度，不返回热量。",
+  "icon": "",
+  "paramsSchema": {
+    "required": [
+      "dish_images"
+    ],
+    "type": "object",
+    "properties": {
+      "dish_images": {
+        "type": "array",
+        "format": "plugin-image-url",
+        "description": "待识别的食堂菜品照片",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "formValue": {
+    "images": "{{input.dish_images}}",
+    "modelID": "2015",
+    "modelParams": {
+      "maxTokens": 8192,
+      "temperature": 0.5
+    },
+    "prompt": "你是一位专业的食堂菜品识别专家，擅长从菜品图片中精准识别菜品信息。\n\n请对提供的食堂菜品图片进行识别，返回以下信息：\n1. 候选菜名(name): 识别到的菜品名称\n2. 份量档(portion): 只能是small（小份）、medium（中份）、large（大份）三者之一\n3. 置信度(confidence): 识别结果的可信度，取值范围0-1\n\n输出要求：\n- 严格按照JSON格式返回，不要返回任何额外说明文字\n- 不要返回热量相关信息\n- 如果无法准确识别某个字段，置信度请设为0以下"
+  },
+  "createdAt": 1792292284029,
+  "updatedAt": 1792292284029,
+  "createdBy": 7586445458424204244
+}

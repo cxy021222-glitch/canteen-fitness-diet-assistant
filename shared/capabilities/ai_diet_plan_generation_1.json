@@ -1,0 +1,55 @@
+{
+  "id": "ai_diet_plan_generation_1",
+  "pluginKey": "@official-plugins/ai-text-generate",
+  "pluginVersion": "1.0.21",
+  "name": "AI饮食规划生成",
+  "description": "根据用户档案、营养目标、可用食材等上下文信息，生成符合规范的饮食搭配方案",
+  "icon": "",
+  "paramsSchema": {
+    "type": "object",
+    "properties": {
+      "registered_snacks": {
+        "type": "string",
+        "description": "已登记的零食补给信息"
+      },
+      "dietary_restrictions": {
+        "type": "string",
+        "description": "用户忌口信息，包含食物过敏、饮食禁忌、宗教饮食限制等"
+      },
+      "meal_schedule": {
+        "type": "string",
+        "description": "餐次安排信息，包含每日餐次数量、各餐次时间安排等"
+      },
+      "user_profile": {
+        "type": "string",
+        "description": "用户个人档案信息，包含年龄、性别、体重、身高、健康状况、运动习惯等"
+      },
+      "nutrition_target": {
+        "type": "string",
+        "description": "营养目标宏量指标，包含每日所需热量、蛋白质、碳水化合物、脂肪等摄入量要求"
+      },
+      "available_dishes": {
+        "type": "string",
+        "description": "可用菜品及对应营养成分信息"
+      }
+    },
+    "required": [
+      "user_profile",
+      "nutrition_target",
+      "available_dishes",
+      "dietary_restrictions",
+      "meal_schedule"
+    ]
+  },
+  "formValue": {
+    "modelID": "2015",
+    "modelParams": {
+      "maxTokens": 8192,
+      "temperature": 0.5
+    },
+    "prompt": "你是一位专业的注册营养师，严格遵守PRD第8.3章System Prompt的所有约束要求。\n\n请基于以下用户信息生成科学合理的饮食搭配方案：\n\n1. 用户个人档案：{{input.user_profile}}\n2. 营养目标宏量要求：{{input.nutrition_target}}\n3. 可用菜品及营养信息：{{input.available_dishes}}\n4. 已登记零食补给：{{input.registered_snacks}}\n5. 用户忌口信息：{{input.dietary_restrictions}}\n6. 餐次安排要求：{{input.meal_schedule}}\n\n输出要求：\n1. 严格按照PRD第8.5章规定的JSON Schema格式输出，必须包含meal.items、gap、suggestions、warnings四个核心字段\n2. meal.items需明确标注各餐次的菜品搭配、重量、营养成分数据\n3. gap部分需分析当前方案与营养目标的差距及调整建议\n4. suggestions需提供可替代的菜品选择和饮食优化建议\n5. warnings需标注需要特别注意的饮食禁忌和健康风险提示\n6. 所有营养数据需准确可靠，符合中国居民膳食指南标准\n7. 输出必须为合法JSON格式，便于系统解析\n8. 采用流式输出方式返回结果"
+  },
+  "createdAt": 1792292287079,
+  "updatedAt": 1792292287079,
+  "createdBy": 7586445458424204244
+}
