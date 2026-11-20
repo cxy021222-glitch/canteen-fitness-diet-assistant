@@ -2,22 +2,32 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { ErrorBoundary } from "react-error-boundary";
-import { AppContainer, ErrorRender } from "@lark-apaas/client-toolkit-lite";
 import App from "./app";
 import "./index.css";
 
+function Fallback({ error, resetErrorBoundary }: { error: Error; resetErrorBoundary: () => void }) {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center bg-paper p-12 text-center font-serif text-ink">
+      <h1 className="mb-2 text-2xl font-semibold">这一页还没能翻开</h1>
+      <p className="mb-6 max-w-md text-muted-foreground text-sm">
+        {error.message || "发生了一个意外。可以回到工作台继续，或者刷新页面。"}
+      </p>
+      <button
+        onClick={resetErrorBoundary}
+        className="rounded-sm border border-border bg-paper px-5 py-2 hover:bg-card"
+      >
+        回到工作台
+      </button>
+    </div>
+  );
+}
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <BrowserRouter basename={process.env.CLIENT_BASE_PATH || "/"}>
-      <AppContainer>
-        <ErrorBoundary
-          fallbackRender={({ error, resetErrorBoundary }) => (
-            <ErrorRender error={error} resetErrorBoundary={resetErrorBoundary} />
-          )}
-        >
-          <App />
-        </ErrorBoundary>
-      </AppContainer>
+    <BrowserRouter>
+      <ErrorBoundary fallbackRender={Fallback}>
+        <App />
+      </ErrorBoundary>
     </BrowserRouter>
   </StrictMode>,
 );
