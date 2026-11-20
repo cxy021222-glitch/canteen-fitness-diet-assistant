@@ -6,18 +6,22 @@ import {
   AudioLines,
   BookOpenText,
   Boxes,
+  ChevronDown,
   Feather,
+  FilePlus2,
   GitBranch,
   LayoutDashboard,
   Mic,
   PackageCheck,
   PenLine,
   Sparkles,
+  Trash2,
   Wand2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useWorkbench } from '@/lib/store';
 import { Artwork } from '@/components/Artwork';
+import { useState } from 'react';
 
 interface NavEntry {
   to: string;
@@ -88,10 +92,22 @@ function NavItem({ item }: { item: NavEntry }) {
 
 export function WorkbenchShell({ children }: { children: ReactNode }) {
   const location = useLocation();
-  const { project, savedAt } = useWorkbench();
+  const { project, savedAt, summaries, activeId, switchProject, newProject, cloneDemoProject, deleteProject } = useWorkbench();
   const done = project.chapters.filter((chapter) => chapter.status === 'done').length;
   const progress = Math.round(((done + project.illustrations.filter((i) => i.status === 'ready').length) / 9) * 100);
   const title = TITLES[location.pathname] ?? '工作台';
+  const [open, setOpen] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+
+  const handleNew = () => {
+    const t = newTitle.trim();
+    if (!t) return;
+    newProject(t);
+    setNewTitle('');
+    setShowNew(false);
+    setOpen(false);
+  };
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -104,14 +120,22 @@ export function WorkbenchShell({ children }: { children: ReactNode }) {
           </div>
         </div>
 
-        <div className="mx-4 mb-5 border border-white/10 bg-white/[0.035] p-3">
-          <div className="flex gap-3">
+        <div className="mx-4 mb-5">
+          <button
+            onClick={() => setOpen((v) => !v)}
+            className="flex w-full gap-3 border border-white/10 bg-white/[0.035] p-3 text-left transition-colors hover:bg-white/[0.06]"
+          >
             <div className="h-[54px] w-[42px] shrink-0 overflow-hidden rounded-[2px] bg-[#2a241c]">
               <Artwork variant="cover" styleId={project.cover.style} seed={project.cover.seed} />
             </div>
-            <div className="min-w-0">
-              <div className="truncate font-serif text-[13px] tracking-wide">{project.meta.title}</div>
-              <div className="mt-1 truncate text-[10px] text-[#9b8f7c]">{project.meta.subject} · {project.meta.subjectAge} 岁</div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                <div className="truncate font-serif text-[13px] tracking-wide">{project.meta.title}</div>
+                <ChevronDown className={cn('size-3 shrink-0 text-[#9b8f7c] transition-transform', open && 'rotate-180')} />
+              </div>
+              <div className="mt-1 truncate text-[10px] text-[#9b8f7c]">
+                {project.meta.subject ? `${project.meta.subject} · ${project.meta.subjectAge} 岁` : '未填写讲述者'}
+              </div>
               <div className="mt-2 flex items-center gap-2">
                 <div className="h-[3px] flex-1 bg-white/10">
                   <div className="h-full bg-[#c9a86a]" style={{ width: `${progress}%` }} />
@@ -119,7 +143,73 @@ export function WorkbenchShell({ children }: { children: ReactNode }) {
                 <span className="label text-[8px] text-[#c9a86a]">{progress}%</span>
               </div>
             </div>
-          </div>
+          </button>
+
+          {open && (
+            <div className="mt-2 border border-white/10 bg-[#1c1711]">
+              <div className="label px-3 py-2 text-[8px] text-[#6f6657]">项目列表 · {summaries.length} 个</div>
+              <ul className="max-h-[180px] space-y-0.5 overflow-y-auto px-2 pb-2">
+                {summaries.map((s) => (
+                  <li key={s.id}>
+                    <div
+                      className={cn(
+                        'group flex items-center gap-2 rounded-sm px-2 py-1.5 text-[11px]',
+                        s.id === activeId ? 'bg-[#f6f0e4]/[0.08] text-[#efe7d8]' : 'text-[#b9ae9a] hover:bg-white/[0.04]',
+                      )}
+                    >
+                      <button onClick={() => { switchProject(s.id); setOpen(false); }} className="min-w-0 flex-1 truncate text-left">
+                        <span className="truncate">{s.isDemo && '★ '}{s.title}</span>
+                        <span className="ml-1 text-[8px] text-[#8f8574]">{s.chapterCount} 章 · {s.wordCount} 字</span>
+                      </button>
+                      {!s.isDemo && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); if (confirm(`删除项目「${s.title}」？此操作不可撤销。`)) deleteProject(s.id); }}
+                          className="opacity-0 transition-opacity hover:text-seal group-hover:opacity-100"
+                          title="删除"
+                        >
+                          <Trash2 className="size-3" />
+                        </button>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+
+              <div className="border-t border-white/10 p-2">
+                {showNew ? (
+                  <div className="space-y-2">
+                    <input
+                      autoFocus
+                      value={newTitle}
+                      onChange={(e) => setNewTitle(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleNew()}
+                      placeholder="项目标题"
+                      className="w-full rounded-sm border border-white/10 bg-[#2a241c] px-2 py-1 text-[11px] text-[#efe7d8] placeholder:text-[#6f6657] focus:border-[#c9a86a] focus:outline-none"
+                    />
+                    <div className="flex gap-1.5">
+                      <button onClick={handleNew} className="flex-1 rounded-sm bg-[#c9a86a] px-2 py-1 text-[10px] font-medium text-[#17130e] hover:bg-[#d9b87a]">创建</button>
+                      <button onClick={() => { setShowNew(false); setNewTitle(''); }} className="flex-1 rounded-sm border border-white/10 px-2 py-1 text-[10px] text-[#b9ae9a] hover:bg-white/[0.04]">取消</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={() => setShowNew(true)}
+                      className="flex flex-1 items-center justify-center gap-1 rounded-sm border border-white/10 px-2 py-1.5 text-[10px] text-[#b9ae9a] hover:bg-white/[0.04] hover:text-[#efe7d8]"
+                    >
+                      <FilePlus2 className="size-3" /> 新建空白
+                    </button>
+                    <button
+                      onClick={() => { cloneDemoProject(); setOpen(false); }}
+                      className="flex flex-1 items-center justify-center gap-1 rounded-sm border border-white/10 px-2 py-1.5 text-[10px] text-[#c9a86a] hover:bg-white/[0.04]"
+                    >
+                      ★ 克隆演示
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         <nav className="flex-1 space-y-6 overflow-y-auto px-2 pb-4">

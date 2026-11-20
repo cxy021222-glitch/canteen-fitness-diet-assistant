@@ -126,6 +126,7 @@ export interface ProjectMeta {
 }
 
 export interface Project {
+  id: string;
   meta: ProjectMeta;
   tracks: AudioTrack[];
   transcript: TranscriptLine[];
@@ -141,6 +142,25 @@ export interface Project {
   illustrationStyle: string;
   wordCount: number;
   lastSaved: string;
+}
+
+/** 项目列表里只存轻量元信息，完整内容按 id 分开存 */
+export interface ProjectSummary {
+  id: string;
+  title: string;
+  subtitle: string;
+  subject: string;
+  coverTitle: string;
+  chapterCount: number;
+  wordCount: number;
+  createdAt: string;
+  updatedAt: string;
+  isDemo?: boolean;
+}
+
+export interface ProjectStore {
+  activeId: string;
+  summaries: ProjectSummary[];
 }
 
 export type NarrativePreset = {

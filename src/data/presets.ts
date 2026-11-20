@@ -231,3 +231,12 @@ export function buildIllustrationPrompt(styleId: string, scene: string) {
   const style = IMAGE_STYLES.find((item) => item.id === styleId) ?? IMAGE_STYLES[0];
   return `${scene}, ${style.prompt}, consistent character design, 1960s China, no text`;
 }
+
+/** 演示项目固定 id，localStorage key 的项目子目录 */
+export const DEMO_PROJECT_ID = 'proj-demo-fire';
+/** 空白模板 id（不作为真项目存，只是 createEmptyProject 的 seed） */
+export const EMPTY_PROJECT_ID = 'proj-empty-template';
+/** 项目列表 localStorage key */
+export const STORE_KEY = 'memoir-atelier-store-v1';
+/** 单个项目内容 localStorage key 前缀 */
+export const PROJECT_KEY_PREFIX = 'memoir-atelier-project-v1-';

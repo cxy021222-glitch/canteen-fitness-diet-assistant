@@ -1,14 +1,19 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { createInitialProject, CH5_DRAFT } from '@/data/demoProject';
-import { buildCoverPrompt, buildIllustrationPrompt, STORAGE_KEY, TONE_PRESETS, NARRATIVE_PRESETS } from '@/data/presets';
-import type { Chapter, Project } from '@/data/types';
+import { createInitialProject, createEmptyProject, CH5_DRAFT } from '@/data/demoProject';
+import { buildCoverPrompt, buildIllustrationPrompt, STORE_KEY, PROJECT_KEY_PREFIX, DEMO_PROJECT_ID, TONE_PRESETS, NARRATIVE_PRESETS } from '@/data/presets';
+import type { Chapter, Project, ProjectStore, ProjectSummary } from '@/data/types';
 import { cleanTranscript, type CleanLevel } from '@/lib/fillers';
 
 type TranscribeState = 'idle' | 'running' | 'done';
 
 interface WorkbenchContextValue {
+  /** 当前激活的完整项目 */
   project: Project;
+  /** 所有项目的轻量列表（含当前激活 id） */
+  store: ProjectStore;
+  summaries: ProjectSummary[];
+  activeId: string;
   update: (patch: Partial<Project>) => void;
   setDialect: (dialect: string) => void;
   setNarrative: (id: string) => void;
@@ -30,32 +35,62 @@ interface WorkbenchContextValue {
   generatingCover: boolean;
   generateIllustration: (chapterId: string, styleOverride?: string) => void;
   generatingIllustration: string | null;
-  resetDemo: () => void;
+  // ---- 多项目管理 ----
+  switchProject: (id: string) => void;
+  newProject: (title: string, subtitle?: string) => string;
+  cloneDemoProject: () => string;
+  deleteProject: (id: string) => void;
+  renameProject: (id: string, title: string) => void;
   savedAt: string;
 }
 
 const WorkbenchContext = createContext<WorkbenchContextValue | null>(null);
 
-function loadProject(): Project {
+function projectKey(id: string) {
+  return PROJECT_KEY_PREFIX + id;
+}
+
+function readStore(): ProjectStore {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return createInitialProject();
-    const parsed = JSON.parse(raw) as Project;
-    const fallback = createInitialProject();
-    return {
-      ...fallback,
-      ...parsed,
-      meta: { ...fallback.meta, ...parsed.meta },
-      cover: { ...fallback.cover, ...parsed.cover },
-      chapters: parsed.chapters?.length ? parsed.chapters : fallback.chapters,
-      illustrations: (parsed.illustrations?.length ? parsed.illustrations : fallback.illustrations).map((item, i) => ({
-        seed: i + 1,
-        ...item,
-      })),
-    };
+    const raw = localStorage.getItem(STORE_KEY);
+    if (raw) return JSON.parse(raw) as ProjectStore;
   } catch {
-    return createInitialProject();
+    // ignore
   }
+  return { activeId: DEMO_PROJECT_ID, summaries: [] };
+}
+
+function writeStore(store: ProjectStore) {
+  localStorage.setItem(STORE_KEY, JSON.stringify(store));
+}
+
+function readProject(id: string): Project | null {
+  try {
+    const raw = localStorage.getItem(projectKey(id));
+    if (!raw) return null;
+    return JSON.parse(raw) as Project;
+  } catch {
+    return null;
+  }
+}
+
+function writeProject(p: Project) {
+  localStorage.setItem(projectKey(p.id), JSON.stringify(p));
+}
+
+function buildSummary(p: Project, isDemo = false): ProjectSummary {
+  return {
+    id: p.id,
+    title: p.meta.title || p.cover.title || '未命名项目',
+    subtitle: p.meta.subtitle || p.cover.subtitle || '',
+    subject: p.meta.subject,
+    coverTitle: p.cover.title,
+    chapterCount: p.chapters.length,
+    wordCount: p.wordCount,
+    createdAt: p.meta.createdAt,
+    updatedAt: new Date().toISOString(),
+    isDemo,
+  };
 }
 
 function countWords(text: string) {
@@ -80,27 +115,93 @@ function composeChapter(chapter: Chapter, base: string, toneId: string, narrativ
   return `${opening}\n\n${body}`;
 }
 
+function genId(prefix = 'proj') {
+  return `${prefix}-${Math.random().toString(36).slice(2, 8)}${Date.now().toString(36).slice(-3)}`;
+}
+
+/** 引导性初始化：用户第一次进来时，自动放一个 demo 和一个空白 */
+function bootstrap(): { store: ProjectStore; project: Project } {
+  const store = readStore();
+  let summaries = [...store.summaries];
+
+  // 1) 确保 demo 项目存在（内容是最新的 createInitialProject）
+  let demoProject = readProject(DEMO_PROJECT_ID);
+  if (!demoProject) {
+    demoProject = createInitialProject();
+    writeProject(demoProject);
+  }
+  if (!summaries.find((s) => s.id === DEMO_PROJECT_ID)) {
+    summaries.unshift(buildSummary(demoProject, true));
+  }
+
+  // 2) 如果列表仍为空（极端情况），再补一个空白项目
+  if (summaries.length === 0) {
+    const emptyId = genId();
+    const empty = createEmptyProject(emptyId, '未命名项目');
+    writeProject(empty);
+    summaries.push(buildSummary(empty));
+  }
+
+  // 3) 确保 activeId 有效
+  let activeId = store.activeId;
+  if (!summaries.find((s) => s.id === activeId)) {
+    activeId = summaries[0].id;
+  }
+
+  writeStore({ activeId, summaries });
+
+  // 4) 读激活项目内容，不存在就回退 demo
+  let active = readProject(activeId);
+  if (!active) {
+    active = demoProject ?? createInitialProject();
+    writeProject(active);
+  }
+  return { store: { activeId, summaries }, project: active };
+}
+
 export function WorkbenchProvider({ children }: { children: ReactNode }) {
-  const [project, setProject] = useState<Project>(() => loadProject());
+  const boot = useMemo(bootstrap, []);
+  const [project, setProject] = useState<Project>(boot.project);
+  const [store, setStore] = useState<ProjectStore>(boot.store);
   const [cleanLevel, setCleanLevel] = useState<CleanLevel>('standard');
-  const [visibleLines, setVisibleLines] = useState(() => project.transcript.length);
+  const [visibleLines, setVisibleLines] = useState(() => boot.project.transcript.length);
   const [transcribeState, setTranscribeState] = useState<TranscribeState>('done');
   const [transcribeProgress, setTranscribeProgress] = useState(100);
   const [generatingChapter, setGeneratingChapter] = useState<string | null>(null);
   const [generatingCover, setGeneratingCover] = useState(false);
   const [generatingIllustration, setGeneratingIllustration] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState('刚刚');
-  const baseBodies = useRef<Record<string, string>>(
-    Object.fromEntries(
-      createInitialProject().chapters.map((chapter) => [chapter.id, chapter.id === 'ch5' ? CH5_DRAFT : chapter.body]),
-    ),
-  );
+  // 每个项目单独维护 baseBodies（章节流式生成的底稿）
+  const baseBodies = useRef<Record<string, Record<string, string>>>({});
   const timers = useRef<number[]>([]);
 
+  // 初始化当前项目的 baseBodies
   useEffect(() => {
+    if (!baseBodies.current[project.id]) {
+      baseBodies.current[project.id] = Object.fromEntries(
+        project.chapters.map((c) => [c.id, c.id === 'ch5' && project.id === DEMO_PROJECT_ID ? CH5_DRAFT : c.body]),
+      );
+    }
+  }, [project.id, project.chapters]);
+
+  // 项目内容变化：写 localStorage + 更新 summary
+  useEffect(() => {
+    const id = project.id;
     const timeout = window.setTimeout(() => {
       const next = { ...project, wordCount: project.chapters.reduce((sum, c) => sum + countWords(c.body), 0), lastSaved: '刚刚' };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      writeProject(next);
+      setProject(next);
+
+      setStore((prev) => {
+        const summaries = prev.summaries.map((s) => {
+          if (s.id !== id) return s;
+          const fresh = buildSummary(next, s.isDemo);
+          return { ...s, ...fresh, updatedAt: new Date().toISOString() };
+        });
+        const newStore = { ...prev, summaries };
+        writeStore(newStore);
+        return newStore;
+      });
       setSavedAt('刚刚');
     }, 600);
     return () => window.clearTimeout(timeout);
@@ -109,6 +210,104 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     return () => timers.current.forEach((timer) => window.clearInterval(timer));
   }, []);
+
+  // ---------- 多项目管理 ----------
+
+  const switchProject = useCallback((id: string) => {
+    if (id === project.id) return;
+    const next = readProject(id);
+    if (!next) return;
+    setProject(next);
+    setVisibleLines(next.transcript.length);
+    setTranscribeState(next.transcript.length ? 'done' : 'idle');
+    setTranscribeProgress(next.transcript.length ? 100 : 0);
+    setSavedAt('刚刚');
+    setStore((prev) => {
+      const newStore = { ...prev, activeId: id };
+      writeStore(newStore);
+      return newStore;
+    });
+  }, [project.id]);
+
+  const newProject = useCallback((title: string, subtitle?: string): string => {
+    const id = genId();
+    const fresh = createEmptyProject(id, title || '未命名项目', subtitle);
+    writeProject(fresh);
+    setStore((prev) => {
+      const summaries = [buildSummary(fresh), ...prev.summaries];
+      const newStore = { activeId: id, summaries };
+      writeStore(newStore);
+      return newStore;
+    });
+    setProject(fresh);
+    setVisibleLines(0);
+    setTranscribeState('idle');
+    setTranscribeProgress(0);
+    return id;
+  }, []);
+
+  const cloneDemoProject = useCallback((): string => {
+    const demo = readProject(DEMO_PROJECT_ID) ?? createInitialProject();
+    const id = genId();
+    const cloned: Project = { ...structuredClone(demo), id };
+    cloned.meta.title = `${cloned.meta.title}（副本）`;
+    cloned.meta.createdAt = new Date().toISOString();
+    cloned.lastSaved = '刚刚';
+    writeProject(cloned);
+    setStore((prev) => {
+      const summaries = [buildSummary(cloned), ...prev.summaries];
+      const newStore = { activeId: id, summaries };
+      writeStore(newStore);
+      return newStore;
+    });
+    setProject(cloned);
+    setVisibleLines(cloned.transcript.length);
+    setTranscribeState('done');
+    setTranscribeProgress(100);
+    return id;
+  }, []);
+
+  const deleteProject = useCallback((id: string) => {
+    if (id === DEMO_PROJECT_ID) return; // 保护 demo
+    localStorage.removeItem(projectKey(id));
+    setStore((prev) => {
+      const summaries = prev.summaries.filter((s) => s.id !== id);
+      let activeId = prev.activeId;
+      if (activeId === id) {
+        activeId = summaries[0]?.id ?? DEMO_PROJECT_ID;
+      }
+      const newStore = { activeId, summaries };
+      writeStore(newStore);
+      // 激活项目变了就加载
+      if (activeId !== prev.activeId) {
+        const next = readProject(activeId) ?? createInitialProject();
+        setProject(next);
+        setVisibleLines(next.transcript.length);
+        setTranscribeState(next.transcript.length ? 'done' : 'idle');
+        setTranscribeProgress(next.transcript.length ? 100 : 0);
+      }
+      return newStore;
+    });
+  }, []);
+
+  const renameProject = useCallback((id: string, title: string) => {
+    if (!title.trim()) return;
+    setStore((prev) => {
+      const summaries = prev.summaries.map((s) => (s.id === id ? { ...s, title: title.trim() } : s));
+      const newStore = { ...prev, summaries };
+      writeStore(newStore);
+      return newStore;
+    });
+    if (project.id === id) {
+      setProject((prev) => ({
+        ...prev,
+        meta: { ...prev.meta, title: title.trim() },
+        cover: { ...prev.cover, title: title.trim() },
+      }));
+    }
+  }, [project.id]);
+
+  // ---------- 原有单项目操作 ----------
 
   const update = useCallback((patch: Partial<Project>) => {
     setProject((prev) => ({ ...prev, ...patch }));
@@ -132,6 +331,7 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
           [field]: value,
           ...(field === 'style' ? { status: 'idle' as const } : {}),
         },
+        ...(field === 'title' ? { meta: { ...prev.meta, title: value } } : {}),
       }));
     },
     [],
@@ -139,6 +339,7 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
 
   const startTranscription = useCallback(() => {
     const total = project.transcript.length;
+    if (total === 0) return;
     setTranscribeState('running');
     setTranscribeProgress(0);
     setVisibleLines(0);
@@ -177,7 +378,7 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
     (chapterId: string) => {
       const chapter = project.chapters.find((item) => item.id === chapterId);
       if (!chapter || generatingChapter) return;
-      const base = baseBodies.current[chapterId] ?? chapter.body;
+      const base = (baseBodies.current[project.id]?.[chapterId]) ?? chapter.body;
       const full = composeChapter(chapter, base, project.tone, project.narrative);
       setGeneratingChapter(chapterId);
       let index = 0;
@@ -213,7 +414,7 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
       }, 26);
       timers.current.push(timer);
     },
-    [project.chapters, project.tone, project.narrative, generatingChapter],
+    [project.chapters, project.tone, project.narrative, generatingChapter, project.id],
   );
 
   const generateCover = useCallback((styleOverride?: string) => {
@@ -278,19 +479,6 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
     [project.chapters, project.illustrationStyle],
   );
 
-  const resetDemo = useCallback(() => {
-    localStorage.removeItem(STORAGE_KEY);
-    const fresh = createInitialProject();
-    setProject(fresh);
-    setVisibleLines(fresh.transcript.length);
-    setTranscribeState('done');
-    setTranscribeProgress(100);
-    setSavedAt('刚刚');
-    baseBodies.current = Object.fromEntries(
-      fresh.chapters.map((chapter) => [chapter.id, chapter.id === 'ch5' ? CH5_DRAFT : chapter.body]),
-    );
-  }, []);
-
   const cleaned = useMemo(
     () => cleanTranscript(project.transcript, cleanLevel),
     [project.transcript, cleanLevel],
@@ -298,6 +486,9 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
 
   const value: WorkbenchContextValue = {
     project,
+    store,
+    summaries: store.summaries,
+    activeId: store.activeId,
     update,
     setDialect,
     setNarrative,
@@ -319,7 +510,11 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
     generatingCover,
     generateIllustration,
     generatingIllustration,
-    resetDemo,
+    switchProject,
+    newProject,
+    cloneDemoProject,
+    deleteProject,
+    renameProject,
     savedAt,
   };
 

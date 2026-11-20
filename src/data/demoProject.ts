@@ -1,5 +1,8 @@
-import type { Chapter, Project, TranscriptLine } from './types';
+import type { Chapter, Project, TranscriptLine, CoverDesign } from './types';
 import { buildCoverPrompt, buildIllustrationPrompt } from './presets';
+import { DEMO_PROJECT_ID, EMPTY_PROJECT_ID } from './presets';
+
+const now = () => new Date().toISOString().slice(0, 16);
 
 const CHAPTERS: Chapter[] = [
   {
@@ -145,6 +148,7 @@ const ILLUSTRATION_SPECS = [
 ];
 
 const BASE: Project = {
+  id: DEMO_PROJECT_ID,
   meta: {
     title: '炉火与远方',
     subtitle: '陈守义口述 · 一位三线建设者的六十年',
@@ -296,7 +300,48 @@ export const CH5_DRAFT = `人老了，梦就短了。我常常只梦到一段路
 回来的火车上，孙女问我，爷爷你年轻的时候是什么样子。我想了半天，说，就是一个在火边站着的人。她笑了，说，那你一定很暖和。`;
 
 export function createInitialProject(): Project {
-  return structuredClone(BASE);
+  const fresh = structuredClone(BASE);
+  fresh.lastSaved = '刚刚';
+  return fresh;
+}
+
+export function createEmptyProject(id: string, title: string, subtitle?: string): Project {
+  const createdAt = new Date().toISOString();
+  const cover: CoverDesign = {
+    title,
+    subtitle: subtitle ?? '',
+    author: '',
+    style: 'woodcut',
+    prompt: '',
+    seed: 1,
+    status: 'idle',
+  };
+  return {
+    id,
+    meta: {
+      title,
+      subtitle: subtitle ?? '',
+      subject: '',
+      subjectAge: 0,
+      host: '',
+      place: '',
+      createdAt,
+    },
+    tracks: [],
+    transcript: [],
+    dialect: '普通话',
+    cleaned: false,
+    story: null,
+    narrative: 'chronicle',
+    tone: 'restrained',
+    chapters: [],
+    cover,
+    illustrations: [],
+    layout: 'a5-hardcover',
+    illustrationStyle: 'woodcut',
+    wordCount: 0,
+    lastSaved: '刚刚',
+  };
 }
 
 export const DEMO_FACTS = [

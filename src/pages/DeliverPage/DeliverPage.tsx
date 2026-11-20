@@ -28,7 +28,7 @@ function formatSize(content: string) {
 }
 
 export default function DeliverPage() {
-  const { project, resetDemo } = useWorkbench();
+  const { project, cloneDemoProject } = useWorkbench();
   const bundle = useMemo(() => buildBundle(project), [project]);
   const [token, setToken] = useState('');
   const [owner, setOwner] = useState('cxy021222-glitch');
@@ -301,8 +301,8 @@ export default function DeliverPage() {
             <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
               <StatusDot tone="olive" /> 项目已自动保存
             </span>
-            <button onClick={resetDemo} className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-seal">
-              <RotateCcw className="size-3" /> 重置演示
+            <button onClick={cloneDemoProject} className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-seal">
+              <RotateCcw className="size-3" /> 克隆演示项目
             </button>
           </div>
         </div>
