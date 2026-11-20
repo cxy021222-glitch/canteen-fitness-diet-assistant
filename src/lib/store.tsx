@@ -2,8 +2,10 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { ReactNode } from 'react';
 import { createInitialProject, createEmptyProject, CH5_DRAFT } from '@/data/demoProject';
 import { buildCoverPrompt, buildIllustrationPrompt, STORE_KEY, PROJECT_KEY_PREFIX, DEMO_PROJECT_ID, TONE_PRESETS, NARRATIVE_PRESETS } from '@/data/presets';
-import type { Chapter, Project, ProjectStore, ProjectSummary } from '@/data/types';
+import type { Chapter, Project, ProjectStore, ProjectSummary, TranscriptLine } from '@/data/types';
 import { cleanTranscript, type CleanLevel } from '@/lib/fillers';
+import { useModelConfig } from '@/lib/modelConfig';
+import { chatCompletionStream, generateImage, transcribeAudio, type ChatMessage, type GeneratedImage } from '@/lib/api';
 
 type TranscribeState = 'idle' | 'running' | 'done';
 
@@ -42,6 +44,9 @@ interface WorkbenchContextValue {
   deleteProject: (id: string) => void;
   renameProject: (id: string, title: string) => void;
   savedAt: string;
+  /** 最近一次 API 调用错误（UI 展示用） */
+  apiError: string | null;
+  clearApiError: () => void;
 }
 
 const WorkbenchContext = createContext<WorkbenchContextValue | null>(null);
@@ -160,9 +165,11 @@ function bootstrap(): { store: ProjectStore; project: Project } {
 }
 
 export function WorkbenchProvider({ children }: { children: ReactNode }) {
+  const { config, ready: modelReady } = useModelConfig();
   const boot = useMemo(bootstrap, []);
   const [project, setProject] = useState<Project>(boot.project);
   const [store, setStore] = useState<ProjectStore>(boot.store);
+  const [apiError, setApiError] = useState<string | null>(null);
   const [cleanLevel, setCleanLevel] = useState<CleanLevel>('standard');
   const [visibleLines, setVisibleLines] = useState(() => boot.project.transcript.length);
   const [transcribeState, setTranscribeState] = useState<TranscribeState>('done');
@@ -375,12 +382,82 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const generateChapter = useCallback(
-    (chapterId: string) => {
+    async (chapterId: string) => {
       const chapter = project.chapters.find((item) => item.id === chapterId);
       if (!chapter || generatingChapter) return;
+      setGeneratingChapter(chapterId);
+
+      // —— 真 API 路径 ——
+      if (modelReady('llm')) {
+        setApiError(null);
+        setProject((prev) => ({
+          ...prev,
+          chapters: prev.chapters.map((item) =>
+            item.id === chapterId ? { ...item, body: '', words: 0, status: 'draft' } : item,
+          ),
+        }));
+
+        const messages: ChatMessage[] = [
+          {
+            role: 'system',
+            content: `你是一位中文口述回忆录执笔者。讲述者信息：${project.meta.subject || '（未填写）'} · ${project.meta.subjectAge || '?'} 岁；整理者：${project.meta.host || '（未填写）'}。
+请保持第一人称、克制、有温度。文风：${project.tone}。结构：${project.narrative}。只输出本章正文，不要标题、不要前言、不要注释。`,
+          },
+        ];
+
+        // 拼上下文：本章大纲 + 已有相邻章节（若存在）
+        const prev = project.chapters.find((c) => c.index === chapter.index - 1);
+        const outlineContext = project.story?.outline?.find((o) => o.id === chapterId);
+        const userContent = [
+          `章节标题：${chapter.title}`,
+          `章节时段：${chapter.period}`,
+          `章节摘要：${chapter.summary}`,
+          outlineContext?.keyEvents?.length ? `关键事件：${outlineContext.keyEvents.join('、')}` : '',
+          prev?.body ? `前一章最后一段（供衔接）：\n${prev.body.slice(-200)}` : '',
+          '',
+          '请写本章的完整正文，800-1200 字。',
+        ]
+          .filter(Boolean)
+          .join('\n');
+        messages.push({ role: 'user', content: userContent });
+
+        try {
+          let streamed = '';
+          const result = await chatCompletionStream(config, messages, {
+            onDelta: (delta) => {
+              streamed += delta;
+              const body = streamed;
+              setProject((prev) => ({
+                ...prev,
+                chapters: prev.chapters.map((item) =>
+                  item.id === chapterId
+                    ? { ...item, body, words: countWords(body), status: 'draft' as const }
+                    : item,
+                ),
+              }));
+            },
+          });
+          if (!result.ok) {
+            setApiError(`LLM 调用失败：${result.error}`);
+          }
+          setProject((prev) => ({
+            ...prev,
+            chapters: prev.chapters.map((item) =>
+              item.id === chapterId
+                ? { ...item, status: 'done' as const, words: countWords(result.data ?? streamed) }
+                : item,
+            ),
+          }));
+        } catch (err) {
+          setApiError(`LLM 调用异常：${(err as Error).message}`);
+        }
+        setGeneratingChapter(null);
+        return;
+      }
+
+      // —— 离线模拟路径 ——
       const base = (baseBodies.current[project.id]?.[chapterId]) ?? chapter.body;
       const full = composeChapter(chapter, base, project.tone, project.narrative);
-      setGeneratingChapter(chapterId);
       let index = 0;
       setProject((prev) => ({
         ...prev,
@@ -414,14 +491,40 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
       }, 26);
       timers.current.push(timer);
     },
-    [project.chapters, project.tone, project.narrative, generatingChapter, project.id],
+    [project.chapters, project.tone, project.narrative, project.meta, project.story, generatingChapter, project.id, config, modelReady],
   );
 
-  const generateCover = useCallback((styleOverride?: string) => {
+  const generateCover = useCallback(async (styleOverride?: string) => {
     const styleId = styleOverride ?? project.cover.style;
     setGeneratingCover(true);
-    setProject((prev) => ({ ...prev, cover: { ...prev.cover, style: styleId, status: 'loading' } }));
-    const prompt = `${buildCoverPrompt(styleId, project.cover.title, project.cover.subtitle)}, edition ${Date.now() % 97}`;
+    setProject((prev) => ({ ...prev, cover: { ...prev.cover, style: styleId, status: 'loading', error: undefined } }));
+
+    const prompt = buildCoverPrompt(styleId, project.cover.title, project.cover.subtitle);
+
+    if (modelReady('image')) {
+      setApiError(null);
+      const size = styleId === 'woodcut' || styleId === 'watercolor' ? 'portrait_16_9' : 'portrait_16_9';
+      const result = await generateImage(config, `${prompt}, cover edition ${Date.now() % 97}`, { size });
+      if (result.ok) {
+        setProject((prev) => ({
+          ...prev,
+          cover: {
+            ...prev.cover,
+            status: 'ready',
+            imageUrl: result.data?.url,
+            prompt,
+            seed: (prev.cover.seed + 1) % 90,
+          },
+        }));
+      } else {
+        setApiError(`图像调用失败：${result.error}`);
+        setProject((prev) => ({ ...prev, cover: { ...prev.cover, status: 'error', error: result.error } }));
+      }
+      setGeneratingCover(false);
+      return;
+    }
+
+    // 离线模拟
     const timer = window.setTimeout(() => {
       setProject((prev) => ({
         ...prev,
@@ -430,10 +533,10 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
       setGeneratingCover(false);
     }, 1400);
     timers.current.push(timer);
-  }, [project.cover.style, project.cover.title, project.cover.subtitle]);
+  }, [project.cover.style, project.cover.title, project.cover.subtitle, config, modelReady]);
 
   const generateIllustration = useCallback(
-    (chapterId: string, styleOverride?: string) => {
+    async (chapterId: string, styleOverride?: string) => {
       const chapter = project.chapters.find((item) => item.id === chapterId);
       if (!chapter) return;
       const styleId = styleOverride ?? project.illustrationStyle;
@@ -445,7 +548,7 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
           illustrationStyle: styleId,
           illustrations: exists
             ? prev.illustrations.map((item) =>
-                item.chapterId === chapterId ? { ...item, status: 'loading', style: styleId } : item,
+                item.chapterId === chapterId ? { ...item, status: 'loading', style: styleId, error: undefined } : item,
               )
             : [
                 ...prev.illustrations,
@@ -461,8 +564,36 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
               ],
         };
       });
+
       const scene = `a scene from a Chinese memoir chapter titled "${chapter.title}": ${chapter.summary}`;
       const prompt = `${buildIllustrationPrompt(styleId, scene)}, edition ${Date.now() % 89}`;
+
+      if (modelReady('image')) {
+        setApiError(null);
+        const result = await generateImage(config, prompt, { size: 'landscape_4_3' });
+        if (result.ok) {
+          setProject((prev) => ({
+            ...prev,
+            illustrations: prev.illustrations.map((item) =>
+              item.chapterId === chapterId
+                ? { ...item, status: 'ready', imageUrl: result.data?.url, prompt, seed: (item.seed + 1) % 90 }
+                : item,
+            ),
+          }));
+        } else {
+          setApiError(`图像调用失败：${result.error}`);
+          setProject((prev) => ({
+            ...prev,
+            illustrations: prev.illustrations.map((item) =>
+              item.chapterId === chapterId ? { ...item, status: 'error', error: result.error } : item,
+            ),
+          }));
+        }
+        setGeneratingIllustration(null);
+        return;
+      }
+
+      // 离线模拟
       const timer = window.setTimeout(() => {
         setProject((prev) => ({
           ...prev,
@@ -476,7 +607,7 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
       }, 1600);
       timers.current.push(timer);
     },
-    [project.chapters, project.illustrationStyle],
+    [project.chapters, project.illustrationStyle, config, modelReady],
   );
 
   const cleaned = useMemo(
@@ -516,6 +647,8 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
     deleteProject,
     renameProject,
     savedAt,
+    apiError,
+    clearApiError: () => setApiError(null),
   };
 
   return <WorkbenchContext.Provider value={value}>{children}</WorkbenchContext.Provider>;

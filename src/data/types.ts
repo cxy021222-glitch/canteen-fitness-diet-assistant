@@ -102,7 +102,11 @@ export interface Illustration {
   prompt: string;
   seed: number;
   style: string;
-  status: 'idle' | 'loading' | 'ready';
+  status: 'idle' | 'loading' | 'ready' | 'error';
+  /** 真实图像 URL（base64 data URL 或 https URL）—— 模型 API 返回时填入 */
+  imageUrl?: string;
+  /** 模型返回的原始错误 */
+  error?: string;
 }
 
 export interface CoverDesign {
@@ -112,7 +116,9 @@ export interface CoverDesign {
   style: string;
   prompt: string;
   seed: number;
-  status: 'idle' | 'loading' | 'ready';
+  status: 'idle' | 'loading' | 'ready' | 'error';
+  imageUrl?: string;
+  error?: string;
 }
 
 export interface ProjectMeta {

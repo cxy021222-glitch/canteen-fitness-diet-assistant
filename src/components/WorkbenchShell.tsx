@@ -14,6 +14,7 @@ import {
   Mic,
   PackageCheck,
   PenLine,
+  Settings2,
   Sparkles,
   Trash2,
   Wand2,
@@ -44,6 +45,7 @@ const PIPELINE: NavEntry[] = [
 const SYSTEM: NavEntry[] = [
   { to: '/agents', label: '智能体矩阵', en: 'AGENT MATRIX', icon: Sparkles },
   { to: '/skills', label: 'Skill 仓库', en: 'SKILL REGISTRY', icon: GitBranch },
+  { to: '/settings', label: '模型设置', en: 'MODEL SETTINGS', icon: Settings2 },
 ];
 
 const TITLES: Record<string, string> = {
@@ -56,6 +58,7 @@ const TITLES: Record<string, string> = {
   '/deliver': '交付与归档',
   '/agents': '智能体矩阵',
   '/skills': 'Skill 仓库',
+  '/settings': '模型设置',
 };
 
 function NavItem({ item }: { item: NavEntry }) {
