@@ -1,115 +1,185 @@
-// EXPORTS: IUserProfile, INutritionGoal, IMealEntry, IDailyLog, ISnackEntry, IWorkoutLog, ICustomFood, IAIPlanResult, MealType, TrainingFrequency, TrainingIntensity, GoalType, PortionSize
+export type StageId = 'capture' | 'transcript' | 'compose' | 'write' | 'publish';
 
-import type { PortionSize } from './nutritionDB';
-
-export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
-export type TrainingFrequency = 'sedentary' | 'light' | 'moderate' | 'heavy';
-export type TrainingIntensity = 'low' | 'medium' | 'high';
-export type GoalType = 'bulk' | 'cut' | 'maintain';
-export type Gender = 'male' | 'female';
-export type EntrySource =
-  | 'photo_recognition'
-  | 'manual_search'
-  | 'ai_recommendation'
-  | 'custom_input';
-
-export interface IUserProfile {
-  gender: Gender;
-  age: number;
-  height: number;
-  weight: number;
-  bodyFat?: number;
-  trainingFrequency: TrainingFrequency;
-  trainingIntensity: TrainingIntensity;
-  goal: GoalType;
-  dietaryRestrictions: string[];
-  customRestrictions?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface INutritionGoal {
-  bmi: number;
-  bmr: number;
-  tdee: number;
-  targetKcal: number;
-  proteinG: number;
-  fatG: number;
-  carbsG: number;
-  isEstimatedBodyFat: boolean;
-  isSafetyFloorApplied: boolean;
-  safetyFloorNote?: string;
-  activityFactor: number;
-}
-
-export interface IMealEntry {
+export interface Agent {
   id: string;
-  foodId: string;
-  foodName: string;
-  portion: PortionSize;
-  nutrition: { kcal: number; protein: number; fat: number; carbs: number };
-  source: EntrySource;
-  mealType: MealType;
-  addedAt: string;
-  isCustom?: boolean;
+  code: string;
+  name: string;
+  stage: StageId;
+  role: string;
+  description: string;
+  model: string;
+  fallback: string;
+  modelReason: string;
+  skills: string[];
+  dialects?: string[];
+  inputs: string[];
+  outputs: string[];
+  latency: string;
+  cost: string;
+  status: 'ready' | 'running' | 'warm';
+  tone: string;
 }
 
-export interface IDailyLog {
-  date: string;
-  meals: {
-    breakfast: IMealEntry[];
-    lunch: IMealEntry[];
-    dinner: IMealEntry[];
-    snack: IMealEntry[];
-  };
-}
-
-export interface ISnackEntry {
+export interface SkillRepo {
   id: string;
-  foodId: string;
-  foodName: string;
-  portion: PortionSize;
-  nutrition: { kcal: number; protein: number; fat: number; carbs: number };
-  source: 'preset' | 'custom_input';
-  addedAt: string;
-  isCustom?: boolean;
+  repo: string;
+  name: string;
+  description: string;
+  stars: number;
+  language: string;
+  category: '语音' | '文本' | '图像' | '排版' | '文档';
+  url: string;
+  usedBy: string[];
+  license: string;
+  note: string;
 }
 
-export interface IWorkoutLog {
-  date: string;
-  hasWorkout: boolean;
-  bodyParts: string[];
-  intensity: 'easy' | 'moderate' | 'hard';
+export interface TranscriptLine {
+  id: string;
+  speaker: 'host' | 'guest';
+  start: number;
+  text: string;
+  confidence: number;
+  dialectWord?: string;
 }
 
-export interface ICustomFood {
+export interface AudioTrack {
   id: string;
   name: string;
-  category: 'dish' | 'snack';
-  per100g: { kcal: number; protein: number; fat: number; carbs: number };
-  isPendingReview: boolean;
+  duration: number;
+  sizeLabel: string;
+  recordedAt: string;
+  dialect: string;
+  kind: 'record' | 'import';
+  status: 'ready' | 'transcribed';
+}
+
+export interface TimelineEvent {
+  year: string;
+  title: string;
+  detail: string;
+}
+
+export interface StoryEntity {
+  name: string;
+  role: string;
+  kind: 'person' | 'place' | 'object';
+}
+
+export interface OutlineItem {
+  id: string;
+  title: string;
+  period: string;
+  summary: string;
+  keyEvents: string[];
+}
+
+export interface StorySpine {
+  logline: string;
+  themes: string[];
+  timeline: TimelineEvent[];
+  entities: StoryEntity[];
+  quotes: { text: string; source: string }[];
+  outline: OutlineItem[];
+  coverage: number;
+}
+
+export interface Chapter {
+  id: string;
+  index: number;
+  title: string;
+  period: string;
+  summary: string;
+  body: string;
+  words: number;
+  status: 'draft' | 'done' | 'empty';
+}
+
+export interface Illustration {
+  id: string;
+  chapterId: string;
+  chapterTitle: string;
+  prompt: string;
+  seed: number;
+  style: string;
+  status: 'idle' | 'loading' | 'ready';
+}
+
+export interface CoverDesign {
+  title: string;
+  subtitle: string;
+  author: string;
+  style: string;
+  prompt: string;
+  seed: number;
+  status: 'idle' | 'loading' | 'ready';
+}
+
+export interface ProjectMeta {
+  title: string;
+  subtitle: string;
+  subject: string;
+  subjectAge: number;
+  host: string;
+  place: string;
   createdAt: string;
 }
 
-export interface IAIPlanDish {
-  foodId?: string;
-  name: string;
-  portion: PortionSize;
-  kcal?: number;
-  protein_g?: number;
-  fat_g?: number;
-  carb_g?: number;
+export interface Project {
+  meta: ProjectMeta;
+  tracks: AudioTrack[];
+  transcript: TranscriptLine[];
+  dialect: string;
+  cleaned: boolean;
+  story: StorySpine | null;
+  narrative: string;
+  tone: string;
+  chapters: Chapter[];
+  cover: CoverDesign;
+  illustrations: Illustration[];
+  layout: string;
+  illustrationStyle: string;
+  wordCount: number;
+  lastSaved: string;
 }
 
-export interface IAIPlanResult {
-  recommendedDishes: IAIPlanDish[];
-  mealTotal: { kcal: number; protein: number; fat: number; carbs: number };
-  remainingToGoal: {
-    protein_remaining_g: number;
-    kcal_remaining: number;
-  };
-  replacementSuggestions: string[];
-  gapSupplement: string;
-  warnings: string[];
-  isOfflineTemplate: boolean;
-}
+export type NarrativePreset = {
+  id: string;
+  name: string;
+  en: string;
+  essence: string;
+  description: string;
+  bestFor: string;
+  chapterOrder: number[];
+  connector: string;
+};
+
+export type TonePreset = {
+  id: string;
+  name: string;
+  en: string;
+  description: string;
+  sample: string;
+  keywords: string[];
+  openings: string[];
+};
+
+export type ImageStyle = {
+  id: string;
+  name: string;
+  en: string;
+  description: string;
+  palette: string[];
+  prompt: string;
+};
+
+export type LayoutPreset = {
+  id: string;
+  name: string;
+  size: string;
+  description: string;
+  bodySize: string;
+  leading: string;
+  pages: number;
+  features: string[];
+};

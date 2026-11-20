@@ -1,0 +1,501 @@
+{
+  "meta": {
+    "title": "炉火与远方",
+    "subtitle": "陈守义口述 · 一位三线建设者的六十年",
+    "subject": "陈守义",
+    "subjectAge": 82,
+    "host": "林小满",
+    "place": "四川 · 攀枝花",
+    "createdAt": "2026-11-18"
+  },
+  "tracks": [
+    {
+      "id": "au1",
+      "name": "第一次访谈 · 童年与离家",
+      "duration": 2538,
+      "sizeLabel": "286 MB",
+      "recordedAt": "2026-11-16 09:20",
+      "dialect": "四川话",
+      "kind": "record",
+      "status": "transcribed"
+    },
+    {
+      "id": "au2",
+      "name": "第二次访谈 · 攀钢岁月",
+      "duration": 3522,
+      "sizeLabel": "401 MB",
+      "recordedAt": "2026-11-17 14:05",
+      "dialect": "四川话",
+      "kind": "record",
+      "status": "transcribed"
+    },
+    {
+      "id": "au3",
+      "name": "第三次访谈 · 退休以后",
+      "duration": 1865,
+      "sizeLabel": "203 MB",
+      "recordedAt": "2026-11-18 10:40",
+      "dialect": "四川话",
+      "kind": "record",
+      "status": "transcribed"
+    }
+  ],
+  "transcript": [
+    {
+      "id": "t1",
+      "speaker": "host",
+      "start": 4,
+      "text": "陈爷爷，您慢慢讲，不着急。今天就是想听您说说以前的事。",
+      "confidence": 0.98
+    },
+    {
+      "id": "t2",
+      "speaker": "guest",
+      "start": 18,
+      "text": "嗯……我叫陈守义，一九四三年生在自贡，那个……家里头穷得很。",
+      "confidence": 0.93,
+      "dialectWord": "那个"
+    },
+    {
+      "id": "t3",
+      "speaker": "guest",
+      "start": 41,
+      "text": "我爹在盐井上做工，天不亮就出门，回来的时候，一身都是白的。",
+      "confidence": 0.95
+    },
+    {
+      "id": "t4",
+      "speaker": "guest",
+      "start": 66,
+      "text": "那时候吃不饱嘛，就是……就是说，红薯稀饭，稀得能照见人影。",
+      "confidence": 0.87,
+      "dialectWord": "嘛"
+    },
+    {
+      "id": "t5",
+      "speaker": "host",
+      "start": 92,
+      "text": "那后来呢？您是怎么去的攀枝花？",
+      "confidence": 0.99
+    },
+    {
+      "id": "t6",
+      "speaker": "guest",
+      "start": 108,
+      "text": "一九五八年，我十五岁，招工的人到镇上来了，说去西边，管饭。",
+      "confidence": 0.96
+    },
+    {
+      "id": "t7",
+      "speaker": "guest",
+      "start": 137,
+      "text": "我妈没说话，第二天早上，给我煮了两个鸡蛋。呃……我到现在都记得。",
+      "confidence": 0.84,
+      "dialectWord": "呃"
+    },
+    {
+      "id": "t8",
+      "speaker": "host",
+      "start": 165,
+      "text": "家里人对您去那么远，是什么态度？",
+      "confidence": 0.98
+    },
+    {
+      "id": "t9",
+      "speaker": "guest",
+      "start": 178,
+      "text": "她心头肯定舍不得噻，但是屋头穷嘛，出去一个，就少一张嘴。",
+      "confidence": 0.72,
+      "dialectWord": "噻/屋头"
+    },
+    {
+      "id": "t10",
+      "speaker": "guest",
+      "start": 204,
+      "text": "火车走了三天三夜，越走山越高，到后来，窗户外面全是雾。",
+      "confidence": 0.94
+    },
+    {
+      "id": "t11",
+      "speaker": "guest",
+      "start": 236,
+      "text": "攀枝花那个时候不叫攀枝花，叫渡口，就那么几间席棚子，满山的石头。",
+      "confidence": 0.9
+    },
+    {
+      "id": "t12",
+      "speaker": "guest",
+      "start": 268,
+      "text": "我们修路、背水泥，手上全是口子，晚上睡在席棚里，听得见金沙江响。",
+      "confidence": 0.93
+    },
+    {
+      "id": "t13",
+      "speaker": "guest",
+      "start": 301,
+      "text": "嗯……苦是苦，可是大家心头都有一团火。",
+      "confidence": 0.88,
+      "dialectWord": "心头"
+    },
+    {
+      "id": "t14",
+      "speaker": "host",
+      "start": 326,
+      "text": "您还记得第一次看到高炉点火吗？",
+      "confidence": 0.99
+    },
+    {
+      "id": "t15",
+      "speaker": "guest",
+      "start": 339,
+      "text": "一九六五年，高炉点火，我站到人群后头，眼泪就下来了。",
+      "confidence": 0.95
+    },
+    {
+      "id": "t16",
+      "speaker": "guest",
+      "start": 372,
+      "text": "旁边老张拍我，说哭啥子，好事。我说不上来，就是觉得没有白干。",
+      "confidence": 0.82,
+      "dialectWord": "啥子"
+    },
+    {
+      "id": "t17",
+      "speaker": "guest",
+      "start": 405,
+      "text": "后来我认识了我爱人，她是卫生所的护士，上海来的。",
+      "confidence": 0.96
+    },
+    {
+      "id": "t18",
+      "speaker": "guest",
+      "start": 436,
+      "text": "她说话软，我说话硬，两个人吵架，她都吵不赢我。",
+      "confidence": 0.94
+    },
+    {
+      "id": "t19",
+      "speaker": "guest",
+      "start": 468,
+      "text": "娃儿出生那年，我给她打了一个木箱子，用的是工地上捡的边角料。",
+      "confidence": 0.9,
+      "dialectWord": "娃儿"
+    },
+    {
+      "id": "t20",
+      "speaker": "guest",
+      "start": 503,
+      "text": "九十年代厂里头改制，我提前退了。退休那天，把安全帽带回家，挂到墙上。",
+      "confidence": 0.92
+    },
+    {
+      "id": "t21",
+      "speaker": "host",
+      "start": 542,
+      "text": "如果让您用一句话总结这一生，您会怎么说？",
+      "confidence": 0.99
+    },
+    {
+      "id": "t22",
+      "speaker": "guest",
+      "start": 558,
+      "text": "人这一辈子，就像炉子里头的火，有旺的时候，也有要灭的时候。",
+      "confidence": 0.91,
+      "dialectWord": "里头"
+    },
+    {
+      "id": "t23",
+      "speaker": "guest",
+      "start": 592,
+      "text": "可是只要还有人记得添一把柴，它就不得灭。",
+      "confidence": 0.89,
+      "dialectWord": "不得灭"
+    }
+  ],
+  "dialect": "四川话",
+  "cleaned": true,
+  "story": {
+    "logline": "一个自贡盐工的儿子，十五岁登上西行的火车，在金沙江畔的席棚里度过半生，用一双手把矿石炼成铁水，也把异乡炼成了故乡。",
+    "themes": [
+      "迁徙与扎根",
+      "劳动与尊严",
+      "时代与个人",
+      "亲情与记忆"
+    ],
+    "timeline": [
+      {
+        "year": "1943",
+        "title": "出生于自贡",
+        "detail": "盐工家庭，父亲在盐井做工，童年记忆从盐霜开始。"
+      },
+      {
+        "year": "1958",
+        "title": "十五岁离乡",
+        "detail": "招工西行，母亲煮了两个鸡蛋，火车走了三天三夜。"
+      },
+      {
+        "year": "1965",
+        "title": "高炉点火",
+        "detail": "渡口钢铁基地第一座高炉点火，站在人群后落泪。"
+      },
+      {
+        "year": "1967",
+        "title": "结婚成家",
+        "detail": "与上海来的护士周文娟结婚，夜班后有热面。"
+      },
+      {
+        "year": "1970",
+        "title": "女儿出生",
+        "detail": "用工地边角料打了一只木箱，用了几十年。"
+      },
+      {
+        "year": "1995",
+        "title": "提前退休",
+        "detail": "厂里改制，把安全帽带回家挂在墙上。"
+      },
+      {
+        "year": "2023",
+        "title": "重返攀枝花",
+        "detail": "高炉不再冒烟，江边修了公园，旧人旧事仍在风里。"
+      }
+    ],
+    "entities": [
+      {
+        "name": "陈守义",
+        "role": "讲述者 · 三线建设工人",
+        "kind": "person"
+      },
+      {
+        "name": "母亲",
+        "role": "自贡老家的守候者",
+        "kind": "person"
+      },
+      {
+        "name": "周文娟",
+        "role": "妻子 · 上海籍护士",
+        "kind": "person"
+      },
+      {
+        "name": "陈红",
+        "role": "女儿",
+        "kind": "person"
+      },
+      {
+        "name": "老张",
+        "role": "工友 · 高炉点火见证人",
+        "kind": "person"
+      },
+      {
+        "name": "自贡盐井",
+        "role": "故乡与童年",
+        "kind": "place"
+      },
+      {
+        "name": "渡口 / 攀枝花",
+        "role": "半生所在",
+        "kind": "place"
+      },
+      {
+        "name": "木箱",
+        "role": "贯穿全书的家庭物件",
+        "kind": "object"
+      },
+      {
+        "name": "安全帽",
+        "role": "劳动与退休的象征",
+        "kind": "object"
+      }
+    ],
+    "quotes": [
+      {
+        "text": "我们修路、背水泥，手上全是口子，晚上睡在席棚里，听得见金沙江响。",
+        "source": "第二次访谈 · 12:04"
+      },
+      {
+        "text": "她说话软，我说话硬，两个人吵架，她都吵不赢我。",
+        "source": "第二次访谈 · 27:16"
+      },
+      {
+        "text": "可是只要还有人记得添一把柴，它就不得灭。",
+        "source": "第三次访谈 · 09:52"
+      }
+    ],
+    "outline": [
+      {
+        "id": "ch1",
+        "title": "盐井边的童年",
+        "period": "1943 — 1958",
+        "summary": "自贡盐工家庭，父亲的盐霜、母亲的稀饭，以及十五岁那年两个热鸡蛋。",
+        "keyEvents": [
+          "出生于自贡",
+          "父亲在盐井做工",
+          "红薯稀饭的晚饭",
+          "招工报名"
+        ]
+      },
+      {
+        "id": "ch2",
+        "title": "一列向西的火车",
+        "period": "1958 — 1965",
+        "summary": "三天三夜的绿皮火车，越走越高的山，和江边那片叫“渡口”的席棚。",
+        "keyEvents": [
+          "母亲送到村口",
+          "三天三夜的车程",
+          "抵达渡口",
+          "席棚第一夜"
+        ]
+      },
+      {
+        "id": "ch3",
+        "title": "炉火不熄",
+        "period": "1965 — 1978",
+        "summary": "高炉点火的那个下午，一个上海护士，和一只用边角料打成的木箱。",
+        "keyEvents": [
+          "高炉点火",
+          "认识周文娟",
+          "女儿出生",
+          "打木箱"
+        ]
+      },
+      {
+        "id": "ch4",
+        "title": "山里的家",
+        "period": "1978 — 1995",
+        "summary": "一只木箱、一辆二八自行车、一台缝纫机，和屋檐下那串风干的辣椒。",
+        "keyEvents": [
+          "回上海的争论",
+          "岳母去世",
+          "厂里改制",
+          "提前退休"
+        ]
+      },
+      {
+        "id": "ch5",
+        "title": "回到平原",
+        "period": "1995 — 今天",
+        "summary": "重返攀枝花，高炉不再冒烟，而旧人旧事仍在风里。",
+        "keyEvents": [
+          "重返攀枝花",
+          "江边公园",
+          "高炉前的沉默",
+          "孙女的提问"
+        ]
+      }
+    ],
+    "coverage": 92
+  },
+  "narrative": "chronicle",
+  "tone": "warm",
+  "chapters": [
+    {
+      "id": "ch1",
+      "index": 1,
+      "title": "盐井边的童年",
+      "period": "1943 — 1958",
+      "summary": "自贡盐工家庭，父亲的盐霜、母亲的稀饭，以及十五岁那年两个热鸡蛋。",
+      "words": 342,
+      "status": "done",
+      "body": "我出生在自贡的一个盐工家庭。记忆里的第一样东西，是盐。不是厨房里那一小罐白盐，而是父亲衣服上结着的盐霜，硬硬的，像冬天河面上的薄冰。\n\n父亲在盐井上做工，天不亮就出门，回来时眉毛都是白的。他进门第一件事，是把工装脱在门外，拍两下，盐屑簌簌地落下来，像下了一场小雪。\n\n那时候家里穷，晚饭常常是红薯稀饭，稀得能照见人影。母亲总是把碗底那几块红薯留给我和妹妹，自己喝米汤。她说不饿，可我听见她夜里肚子响。\n\n一九五八年，我十五岁。招工的人到镇上来了，说去西边，修钢铁厂，管饭。我报了名，回家才敢跟母亲说。她没骂我，也没说话，只是把灶膛里的火拨了拨。第二天早上，锅里煮着两个鸡蛋。"
+    },
+    {
+      "id": "ch2",
+      "index": 2,
+      "title": "一列向西的火车",
+      "period": "1958 — 1965",
+      "summary": "三天三夜的绿皮火车，越走越高的山，和江边那片叫“渡口”的席棚。",
+      "words": 386,
+      "status": "done",
+      "body": "出发那天，天还没有亮。母亲把两个鸡蛋塞进我怀里，还热着。她站在村口，没有挥手，只是一直看着。我走了很远，回头，她还站在那里，像一根插在雾里的木桩。\n\n火车走了三天三夜。越往西，山越高，隧道一个接一个。车厢里挤满了和我一样大的年轻人，有人唱歌，有人打牌，有人吐得一塌糊涂。我靠在窗边，看见外面的雾从山腰漫上来，把村庄、田地和熟悉的一切都吞掉了。\n\n到了渡口，我才知道“西边”是什么样子。几间席棚子，一条金沙江，满山的石头。风一吹，沙子打在脸上，生疼。带队的说，这里要建一座钢城。我们信了。\n\n第一夜，我睡在席棚里，听见江水响了一整夜。那声音很大，像有什么东西在黑暗里一直往前走，不肯停。"
+    },
+    {
+      "id": "ch3",
+      "index": 3,
+      "title": "炉火不熄",
+      "period": "1965 — 1978",
+      "summary": "高炉点火的那个下午，一个上海护士，和一只用边角料打成的木箱。",
+      "words": 365,
+      "status": "done",
+      "body": "我们修路、背水泥、卸矿石。手上全是口子，晚上用盐水洗，疼得龇牙。第二天照样上工。没有人叫苦，叫了也没用。\n\n一九六五年，高炉点火。那天所有人都去了，站在山坡上。火从炉口窜出来，把半边天都映红了。我站在人群后头，不知道怎么就哭了。旁边的老张拍我，说哭啥子，好事。我说不上来，就是觉得，我们这些年，没有白干。\n\n后来我认识了我爱人。她是卫生所的护士，上海来的，说话软。我说话硬，两个人吵架，她都吵不赢我。可每次我下夜班，桌上都有一碗热着的面。\n\n女儿出生那年，我用工地上捡的边角料，给她打了一个木箱子。箱子不好看，榫头也歪，可用了几十年都没散。她后来说，那是我们家最像样的一件家具。"
+    },
+    {
+      "id": "ch4",
+      "index": 4,
+      "title": "山里的家",
+      "period": "1978 — 1995",
+      "summary": "一只木箱、一辆二八自行车、一台缝纫机，和屋檐下那串风干的辣椒。",
+      "words": 301,
+      "status": "done",
+      "body": "山里的日子，是被一件件小东西缝起来的。一只木箱，一辆二八自行车，一台缝纫机，还有屋檐下那串风干的辣椒。\n\n我爱人总说，等退休了，就回上海。可说着说着，孩子在这里上学，邻居在这里变老，回去的话就淡了。后来她母亲去世，她回去了一趟，回来以后，再没提过。\n\n九十年代，厂里改制。我提前退了。退休那天，我把安全帽带回家，挂在墙上。帽子是旧的，里面有一圈汗渍，洗不掉。\n\n人这一辈子，就像炉子里的火，有旺的时候，也有要灭的时候。可只要还有人记得添一把柴，它就不得灭。"
+    },
+    {
+      "id": "ch5",
+      "index": 5,
+      "title": "回到平原",
+      "period": "1995 — 今天",
+      "summary": "重返攀枝花，高炉不再冒烟，而旧人旧事仍在风里。待撰写。",
+      "words": 0,
+      "status": "empty",
+      "body": ""
+    }
+  ],
+  "cover": {
+    "title": "炉火与远方",
+    "subtitle": "一位三线建设者的六十年",
+    "author": "陈守义 口述　林小满 整理",
+    "style": "woodcut",
+    "prompt": "editorial book cover artwork, 1960s Chinese industrial mountain valley at dusk, a lone worker silhouette in front of a blast furnace, power lines and mist, generous empty space at upper third for typography, no text, no letters, woodcut print, bold carved contours, limited palette of ink black and vermilion on warm paper, grain texture, flat shapes, no text, inspired by themes of 炉火与远方 三线建设者六十年",
+    "seed": 3,
+    "status": "ready"
+  },
+  "illustrations": [
+    {
+      "id": "il1",
+      "chapterId": "ch1",
+      "chapterTitle": "盐井边的童年",
+      "prompt": "a salt worker family in 1950s Sichuan, a mother and a boy at a clay stove, steam and warm dim light, simple wooden house interior, soft watercolor illustration, wet-on-wet washes, muted earth tones, visible paper grain, gentle light, no text, consistent character design, 1960s China, no text",
+      "seed": 1,
+      "style": "watercolor",
+      "status": "ready"
+    },
+    {
+      "id": "il2",
+      "chapterId": "ch2",
+      "chapterTitle": "一列向西的火车",
+      "prompt": "a crowded green train heading west through endless mountains in 1958, mist between peaks, a teenage boy looking out of the window, soft watercolor illustration, wet-on-wet washes, muted earth tones, visible paper grain, gentle light, no text, consistent character design, 1960s China, no text",
+      "seed": 2,
+      "style": "watercolor",
+      "status": "ready"
+    },
+    {
+      "id": "il3",
+      "chapterId": "ch3",
+      "chapterTitle": "炉火不熄",
+      "prompt": "a blast furnace being ignited at dusk in 1965, workers silhouetted on a hillside, sparks and red sky over a mountain valley, soft watercolor illustration, wet-on-wet washes, muted earth tones, visible paper grain, gentle light, no text, consistent character design, 1960s China, no text",
+      "seed": 3,
+      "style": "watercolor",
+      "status": "ready"
+    },
+    {
+      "id": "il4",
+      "chapterId": "ch4",
+      "chapterTitle": "山里的家",
+      "prompt": "a modest 1980s worker family room in a mountain town, a handmade wooden chest, sewing machine, bicycle and dried chili hanging by the door, soft watercolor illustration, wet-on-wet washes, muted earth tones, visible paper grain, gentle light, no text, consistent character design, 1960s China, no text",
+      "seed": 4,
+      "style": "watercolor",
+      "status": "ready"
+    },
+    {
+      "id": "il5",
+      "chapterId": "ch5",
+      "chapterTitle": "回到平原",
+      "prompt": "an old worker standing before a cold silent blast furnace in 2023, a riverside park below, morning fog, a young girl beside him, soft watercolor illustration, wet-on-wet washes, muted earth tones, visible paper grain, gentle light, no text, consistent character design, 1960s China, no text",
+      "seed": 5,
+      "style": "watercolor",
+      "status": "ready"
+    }
+  ],
+  "layout": "a5-hardcover",
+  "illustrationStyle": "watercolor",
+  "wordCount": 1394,
+  "lastSaved": "刚刚"
+}

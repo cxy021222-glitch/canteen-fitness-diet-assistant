@@ -1,29 +1,42 @@
-import { Routes, Route, Navigate } from "react-router-dom";
-import { Layout } from "@/components/Layout";
-import NotFoundPage from "@/pages/NotFoundPage/NotFoundPage";
-import HomePage from "@/pages/HomePage/HomePage";
-import PlanPage from "@/pages/PlanPage/PlanPage";
-import MealDetailPage from "@/pages/MealDetailPage/MealDetailPage";
-import PhotoRecogPage from "@/pages/PhotoRecogPage/PhotoRecogPage";
-import SnackPage from "@/pages/SnackPage/SnackPage";
-import ProfilePage from "@/pages/ProfilePage/ProfilePage";
-import ProfileFormPage from "@/pages/ProfileFormPage/ProfileFormPage";
-import WorkoutPage from "@/pages/WorkoutPage/WorkoutPage";
+import { Routes, Route, Outlet } from 'react-router-dom';
+import { WorkbenchProvider } from '@/lib/store';
+import { WorkbenchShell } from '@/components/WorkbenchShell';
+import WorkbenchPage from '@/pages/WorkbenchPage/WorkbenchPage';
+import CapturePage from '@/pages/CapturePage/CapturePage';
+import TranscriptPage from '@/pages/TranscriptPage/TranscriptPage';
+import ComposePage from '@/pages/ComposePage/ComposePage';
+import WritePage from '@/pages/WritePage/WritePage';
+import PublishPage from '@/pages/PublishPage/PublishPage';
+import DeliverPage from '@/pages/DeliverPage/DeliverPage';
+import AgentsPage from '@/pages/AgentsPage/AgentsPage';
+import SkillsPage from '@/pages/SkillsPage/SkillsPage';
+import NotFoundPage from '@/pages/NotFoundPage/NotFoundPage';
+
+function ShellLayout() {
+  return (
+    <WorkbenchShell>
+      <Outlet />
+    </WorkbenchShell>
+  );
+}
 
 export default function App() {
   return (
-    <Routes>
-      <Route element={<Layout />}>
-        <Route index element={<HomePage />} />
-        <Route path="plan" element={<PlanPage />} />
-        <Route path="plan/meal/:mealType" element={<MealDetailPage />} />
-        <Route path="plan/photo" element={<PhotoRecogPage />} />
-        <Route path="snack" element={<SnackPage />} />
-        <Route path="profile" element={<ProfilePage />} />
-        <Route path="profile/form" element={<ProfileFormPage />} />
-        <Route path="profile/workout" element={<WorkoutPage />} />
-        <Route path="*" element={<NotFoundPage />} />
-      </Route>
-    </Routes>
+    <WorkbenchProvider>
+      <Routes>
+        <Route element={<ShellLayout />}>
+          <Route index element={<WorkbenchPage />} />
+          <Route path="capture" element={<CapturePage />} />
+          <Route path="transcript" element={<TranscriptPage />} />
+          <Route path="compose" element={<ComposePage />} />
+          <Route path="write" element={<WritePage />} />
+          <Route path="publish" element={<PublishPage />} />
+          <Route path="deliver" element={<DeliverPage />} />
+          <Route path="agents" element={<AgentsPage />} />
+          <Route path="skills" element={<SkillsPage />} />
+          <Route path="*" element={<NotFoundPage />} />
+        </Route>
+      </Routes>
+    </WorkbenchProvider>
   );
 }

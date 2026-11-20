@@ -1,0 +1,112 @@
+{
+  "project": {
+    "title": "炉火与远方",
+    "subtitle": "陈守义口述 · 一位三线建设者的六十年",
+    "subject": "陈守义",
+    "subjectAge": 82,
+    "host": "林小满",
+    "place": "四川 · 攀枝花",
+    "createdAt": "2026-11-18"
+  },
+  "generatedAt": "2026-11-20T06:45:20.964Z",
+  "narrative": {
+    "id": "chronicle",
+    "name": "编年体",
+    "en": "CHRONICLE",
+    "essence": "顺流而下",
+    "description": "按时间顺序推进，从童年写到当下。线索清晰、阅读门槛最低，适合第一次整理口述的委托人。",
+    "bestFor": "时间跨度大、重大节点清晰的生平",
+    "chapterOrder": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "connector": "那一年，……"
+  },
+  "tone": {
+    "id": "warm",
+    "name": "温暖抒情",
+    "en": "WARM",
+    "description": "允许光线、气味与温度进入文字，把细节写成可触摸的记忆。",
+    "sample": "灶膛里的火苗舔着锅底，把母亲的脸照得忽明忽暗。",
+    "keywords": [
+      "感官",
+      "光影",
+      "余温"
+    ],
+    "openings": [
+      "很多年以后，我还能闻到那股咸味。",
+      "那天的雾很重，像谁把一床旧棉被搭在了山上。",
+      "火光跃起来的一瞬间，我听见自己的心跳。",
+      "木头的香气，一直留到很多年以后。",
+      "傍晚的光斜斜地照进来，把屋子照成旧照片的颜色。"
+    ]
+  },
+  "layout": {
+    "id": "a5-hardcover",
+    "name": "A5 精装",
+    "size": "148 × 210 mm",
+    "description": "最通用的家族回忆录开本，单手可持，适合精装赠予亲友。",
+    "bodySize": "10.5 pt",
+    "leading": "1.75",
+    "pages": 248,
+    "features": [
+      "章节扉页",
+      "单栏正文",
+      "页眉年份",
+      "彩插 4 页"
+    ]
+  },
+  "pipeline": [
+    {
+      "stage": "capture",
+      "agents": [
+        "A01"
+      ],
+      "outputs": [
+        "第一次访谈 · 童年与离家",
+        "第二次访谈 · 攀钢岁月",
+        "第三次访谈 · 退休以后"
+      ]
+    },
+    {
+      "stage": "transcript",
+      "agents": [
+        "A02",
+        "A03",
+        "A04"
+      ],
+      "lines": 23
+    },
+    {
+      "stage": "compose",
+      "agents": [
+        "A05",
+        "A06"
+      ],
+      "chapters": 5
+    },
+    {
+      "stage": "write",
+      "agents": [
+        "A07",
+        "A08"
+      ],
+      "words": 1394
+    },
+    {
+      "stage": "publish",
+      "agents": [
+        "A09",
+        "A10",
+        "A11",
+        "A12"
+      ],
+      "layout": "A5 精装",
+      "cover": "woodcut"
+    }
+  ],
+  "disclaimer": "本交付物由 AI 辅助整理，事实与称谓需经讲述者及家属确认后方可印刷出版。"
+}
