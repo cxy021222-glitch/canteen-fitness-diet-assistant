@@ -1,23 +1,37 @@
 /**
  * 国内大模型统一调用客户端。
  *
- * 设计：
- *  - 文本 LLM / 图像：大部分走 OpenAI 兼容 REST（/chat/completions, /images/generations）
- *    少数厂商（阿里 DashScope 图像、腾讯云、讯飞）走自己的 REST 签名或 body 结构，
- *    由本模块内部分发。
- *  - 语音 ASR：FunASR / SenseVoice 可通过 SiliconFlow 等代理走 OpenAI
- *    /audio/transcriptions 上传 wav；腾讯云/讯飞走自己的签名接口。
- *  - 浏览器端直接 fetch，无后端依赖；用户 API key 存在 localStorage。
- *  - 所有函数都返回结构化结果 + error；不抛异常给 UI。
+ * - 文本 / 图像 / ASR 大部分走 OpenAI 兼容 REST；
+ * - 凭据按「厂商」维度保存（config.creds[vendorId]），切换模型不丢 Key；
+ * - testConnection 分三段探测：网络可达 → 鉴权通过 → 业务可用。
  */
 
-import type { ModelConfig } from '@/data/models';
+import type { ModelConfig, ModelCreds, ModelKind } from '@/data/models';
 import { findModel } from '@/data/models';
 
 export interface ApiResult<T> {
   ok: boolean;
   data?: T;
   error?: string;
+}
+
+/** 连通性探测结果 */
+export interface ConnResult {
+  ok: boolean;
+  /** 网络（DNS/TCP/TLS）是否可达 */
+  reachable: boolean;
+  /** 鉴权是否通过 */
+  authorized: boolean;
+  /** 耗时（毫秒） */
+  latencyMs: number;
+  /** 结论文案 */
+  message: string;
+  /** 卡在哪一段 */
+  stage: 'network' | 'auth' | 'done';
+}
+
+function credsOf(config: ModelConfig, vendorId: string): ModelCreds {
+  return config.creds[vendorId] ?? { apiKey: '' };
 }
 
 // ========== 文本 LLM ==========
@@ -27,45 +41,6 @@ export interface ChatMessage {
   content: string;
 }
 
-export async function chatCompletion(
-  config: ModelConfig,
-  messages: ChatMessage[],
-  opts: { temperature?: number; json?: boolean } = {},
-): Promise<ApiResult<string>> {
-  if (config.offlineMode) return { ok: false, error: 'offline' };
-  const m = findModel(config.llm.modelId);
-  if (!m) return { ok: false, error: '未选择模型' };
-  if (!config.llm.creds.apiKey) return { ok: false, error: '未填写 API Key' };
-
-  const endpoint = (config.llm.creds.endpoint || m.defaultEndpoint).replace(/\/$/, '');
-  const model = config.llm.creds.apiKey ? (config.llm.creds.extra?.model || m.modelParam || m.id) : (m.modelParam || m.id);
-
-  try {
-    const res = await fetch(`${endpoint}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${config.llm.creds.apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages,
-        temperature: opts.temperature ?? 0.7,
-        ...(opts.json ? { response_format: { type: 'json_object' } } : {}),
-      }),
-    });
-    const json = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      return { ok: false, error: json.error?.message || res.statusText };
-    }
-    const text = json?.choices?.[0]?.message?.content ?? '';
-    return { ok: true, data: typeof text === 'string' ? text.trim() : JSON.stringify(text).trim() };
-  } catch (err) {
-    return { ok: false, error: (err as Error).message };
-  }
-}
-
-// 流式版本：每次 onDelta 传新的增量，onDone 传最终文本
 export async function chatCompletionStream(
   config: ModelConfig,
   messages: ChatMessage[],
@@ -74,17 +49,19 @@ export async function chatCompletionStream(
   if (config.offlineMode) return { ok: false, error: 'offline' };
   const m = findModel(config.llm.modelId);
   if (!m) return { ok: false, error: '未选择模型' };
-  if (!config.llm.creds.apiKey) return { ok: false, error: '未填写 API Key' };
+  const creds = credsOf(config, m.vendorId);
+  if (!creds.apiKey) return { ok: false, error: '未填写 API Key' };
 
-  const endpoint = (config.llm.creds.endpoint || m.defaultEndpoint).replace(/\/$/, '');
-  const model = m.modelParam || m.id;
+  const endpoint = (creds.endpoint || m.defaultEndpoint).replace(/\/$/, '');
+  // 豆包/火山方舟需要把推理接入点 ID 填进 model 参数
+  const model = creds.extra?.model || m.modelParam;
 
   try {
     const res = await fetch(`${endpoint}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${config.llm.creds.apiKey}`,
+        Authorization: `Bearer ${creds.apiKey}`,
         Accept: 'text/event-stream',
       },
       body: JSON.stringify({ model, messages, stream: true, temperature: opts.temperature ?? 0.7 }),
@@ -92,7 +69,7 @@ export async function chatCompletionStream(
     });
     if (!res.ok || !res.body) {
       const text = await res.text().catch(() => res.statusText);
-      return { ok: false, error: text.slice(0, 200) };
+      return { ok: false, error: `HTTP ${res.status} · ${text.slice(0, 200)}` };
     }
     const reader = res.body.getReader();
     const decoder = new TextDecoder('utf-8');
@@ -117,7 +94,7 @@ export async function chatCompletionStream(
             opts.onDelta?.(delta);
           }
         } catch {
-          // ignore malformed chunk
+          // 忽略不完整分片
         }
       }
     }
@@ -129,7 +106,6 @@ export async function chatCompletionStream(
 
 // ========== 图像生成 ==========
 
-/** 图像统一结果：base64 data URL 或可直接显示的 https URL */
 export interface GeneratedImage {
   url: string;
   provider: string;
@@ -138,32 +114,28 @@ export interface GeneratedImage {
 export async function generateImage(
   config: ModelConfig,
   prompt: string,
-  opts: { size?: '1024x1024' | '1536x1024' | '1024x1536' | 'square_hd' | 'landscape_4_3' | 'portrait_16_9'; signal?: AbortSignal } = {},
+  opts: { size?: string; signal?: AbortSignal } = {},
 ): Promise<ApiResult<GeneratedImage>> {
   if (config.offlineMode) return { ok: false, error: 'offline' };
   const m = findModel(config.image.modelId);
   if (!m) return { ok: false, error: '未选择模型' };
-  if (!config.image.creds.apiKey) return { ok: false, error: '未填写 API Key' };
+  const creds = credsOf(config, m.vendorId);
+  if (!creds.apiKey) return { ok: false, error: '未填写 API Key' };
 
-  const endpoint = (config.image.creds.endpoint || m.defaultEndpoint).replace(/\/$/, '');
-  const model = m.modelParam || m.id;
+  const endpoint = (creds.endpoint || m.defaultEndpoint).replace(/\/$/, '');
+  const model = creds.extra?.model || m.modelParam;
   const size = opts.size ?? '1024x1024';
 
   try {
-    // OpenAI 兼容图像（豆包 Seedream、智谱 CogView、混元、部分代理）
     if (m.openaiCompatible) {
       const res = await fetch(`${endpoint}/images/generations`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${config.image.creds.apiKey}`,
-        },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${creds.apiKey}` },
         body: JSON.stringify({ model, prompt, size, n: 1, response_format: 'b64_json' }),
         signal: opts.signal,
       });
       const json = await res.json().catch(() => ({}));
-      if (!res.ok) return { ok: false, error: json.error?.message || res.statusText };
-
+      if (!res.ok) return { ok: false, error: json.error?.message || `HTTP ${res.status}` };
       const b64 = json?.data?.[0]?.b64_json;
       const url = json?.data?.[0]?.url;
       if (b64) return { ok: true, data: { url: `data:image/png;base64,${b64}`, provider: m.vendor } };
@@ -171,26 +143,20 @@ export async function generateImage(
       return { ok: false, error: '接口未返回 b64_json / url' };
     }
 
-    // 阿里 DashScope 万相（异步 task，这里简化为同步一次请求）
-    if (m.id === 'wanx-v1') {
-      const res = await fetch(`${endpoint}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${config.image.creds.apiKey}`,
-          'X-DashScope-Async': 'enable',
-          'X-DashScope-DataInspection': 'enable',
-        },
-        body: JSON.stringify({ model, input: { prompt }, parameters: { size, n: 1 } }),
-        signal: opts.signal,
-      });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) return { ok: false, error: json?.message || res.statusText };
-      // 简化：让 UI 继续用内置 SVG 占位 + 链接到阿里控制台查
-      return { ok: true, data: { url: '', provider: '万相（异步）' } };
-    }
-
-    return { ok: false, error: `图像模型 ${m.vendor} 暂未实现，请切换到 Seedream / CogView / 混元` };
+    // 阿里 DashScope 万相（异步任务）
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${creds.apiKey}`,
+        'X-DashScope-Async': 'enable',
+      },
+      body: JSON.stringify({ model, input: { prompt }, parameters: { size, n: 1 } }),
+      signal: opts.signal,
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, error: json?.message || `HTTP ${res.status}` };
+    return { ok: true, data: { url: '', provider: '万相（异步任务已提交）' } };
   } catch (err) {
     return { ok: false, error: (err as Error).message };
   }
@@ -198,118 +164,195 @@ export async function generateImage(
 
 // ========== 语音 ASR ==========
 
-/** ASR 结果：数组形式，方便后续直接喂 TranscriptLine[] */
 export interface AsrLine {
-  start: number; // seconds
+  start: number;
   end: number;
   text: string;
 }
 
 export async function transcribeAudio(
   config: ModelConfig,
-  /** 浏览器端拿到的录音 Blob 或已上传到 CDN 的 URL */
   source: Blob | string,
   opts: { dialect?: string; signal?: AbortSignal } = {},
 ): Promise<ApiResult<AsrLine[]>> {
   if (config.offlineMode) return { ok: false, error: 'offline' };
   const m = findModel(config.asr.modelId);
   if (!m) return { ok: false, error: '未选择模型' };
-  if (!config.asr.creds.apiKey) return { ok: false, error: '未填写 API Key' };
+  const creds = credsOf(config, m.vendorId);
+  if (!creds.apiKey) return { ok: false, error: '未填写 API Key' };
 
-  const endpoint = (config.asr.creds.endpoint || m.defaultEndpoint).replace(/\/$/, '');
-  const model = m.modelParam || m.id;
+  const endpoint = (creds.endpoint || m.defaultEndpoint).replace(/\/$/, '');
+  const model = creds.extra?.model || m.modelParam;
 
-  // OpenAI 兼容 upload（SiliconFlow 代理 SenseVoice / Paraformer 这类）
-  if (m.openaiCompatible && source instanceof Blob) {
-    try {
-      const fd = new FormData();
-      fd.append('model', model);
-      fd.append('file', source, 'recording.wav');
-      const langHint = opts.dialect ? dialectToLangHint(opts.dialect) : '';
-      if (langHint) fd.append('prompt', langHint);
-
-      const res = await fetch(`${endpoint}/audio/transcriptions`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${config.asr.creds.apiKey}` },
-        body: fd,
-        signal: opts.signal,
-      });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) return { ok: false, error: json?.error?.message || res.statusText };
-      const text: string = json.text || '';
-      // 没有分段时整个作为一行
-      const segs = (json.segments || []).map((s: any) => ({ start: s.start, end: s.end, text: s.text }));
-      const lines = segs.length ? segs : [{ start: 0, end: text.length * 0.04, text }];
-      return { ok: true, data: lines };
-    } catch (err) {
-      return { ok: false, error: (err as Error).message };
-    }
+  if (!(source instanceof Blob)) {
+    return { ok: false, error: '请先在采集页录音或导入音频文件' };
+  }
+  if (!m.openaiCompatible) {
+    return { ok: false, error: `${m.vendor} 需要专用签名接口，请在设置页改填 SiliconFlow / 阿里百炼 兼容地址` };
   }
 
-  return { ok: false, error: `ASR 模型 ${m.vendor} 暂未实现，请切换到 FunAudioLLM（SiliconFlow 代理）` };
+  try {
+    const fd = new FormData();
+    fd.append('model', model);
+    fd.append('file', source, 'recording.wav');
+    const hint = opts.dialect ? dialectHint(opts.dialect) : '';
+    if (hint) fd.append('prompt', hint);
+
+    const res = await fetch(`${endpoint}/audio/transcriptions`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${creds.apiKey}` },
+      body: fd,
+      signal: opts.signal,
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, error: json?.error?.message || `HTTP ${res.status}` };
+    const text: string = json.text || '';
+    const segs = (json.segments || []).map((s: { start: number; end: number; text: string }) => ({
+      start: s.start,
+      end: s.end,
+      text: s.text,
+    }));
+    return { ok: true, data: segs.length ? segs : [{ start: 0, end: text.length * 0.04, text }] };
+  } catch (err) {
+    return { ok: false, error: (err as Error).message };
+  }
 }
 
-/** 把工作台的方言标签转成给 ASR 的提示词 */
-function dialectToLangHint(dialect: string): string {
+function dialectHint(dialect: string): string {
   const map: Record<string, string> = {
-    普通话: '以下是普通话对话',
-    粤语: '以下是粤语对话，请按粤语发音转写',
-    四川话: '以下是四川话对话',
-    闽南语: '以下是闽南语对话',
-    吴语: '以下是上海话 / 吴语对话',
-    东北话: '以下是东北话对话',
-    客家话: '以下是客家话对话',
-    河南话: '以下是河南话对话',
-    陕西话: '以下是陕西话对话',
+    普通话: '以下为普通话对话',
+    粤语: '以下为粤语对话，请按粤语发音转写',
+    四川话: '以下为四川话对话',
+    闽南语: '以下为闽南语对话',
+    吴语: '以下为上海话 / 吴语对话',
+    东北话: '以下为东北话对话',
+    客家话: '以下为客家话对话',
+    河南话: '以下为河南话对话',
+    陕西话: '以下为陕西话对话',
   };
   return map[dialect] || '';
 }
 
-// ========== 连通性检查 ==========
+// ========== 连通性测试 ==========
 
-export async function pingModel(config: ModelConfig, kind: 'llm' | 'asr' | 'image'): Promise<ApiResult<string>> {
-  if (config.offlineMode) return { ok: false, error: '离线演示模式' };
-  const conf = config[kind];
-  const m = findModel(conf.modelId);
-  if (!m) return { ok: false, error: '未选择模型' };
-  if (!conf.creds.apiKey) return { ok: false, error: '未填写 API Key' };
-  const endpoint = (conf.creds.endpoint || m.defaultEndpoint).replace(/\/$/, '');
+/**
+ * 三段式探测：
+ *  1. 网络层：no-cors 请求 endpoint，判断 DNS / TCP / TLS 是否通；
+ *  2. 鉴权层：带 Key 打一次最小业务请求，看 401/403；
+ *  3. 结论：全通 / 可达但 Key 无效 / 网络不通。
+ * 无 Key 时只做第 1 段（只能确认网络可达）。
+ */
+export async function testConnection(
+  config: ModelConfig,
+  vendorId: string,
+  kind: ModelKind,
+): Promise<ConnResult> {
+  const started = Date.now();
+  const modelId =
+    kind === 'llm' ? config.llm.modelId : kind === 'asr' ? config.asr.modelId : config.image.modelId;
+  const m = findModel(modelId);
+  if (!m) {
+    return { ok: false, reachable: false, authorized: false, latencyMs: 0, message: '未选择模型', stage: 'network' };
+  }
+  const creds = credsOf(config, vendorId);
+  const endpoint = (creds.endpoint || m.defaultEndpoint).replace(/\/$/, '');
 
-  if (kind === 'llm' || kind === 'asr') {
-    // 用 chat 端点打一个极短请求
-    try {
-      const res = await fetch(`${endpoint}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${conf.creds.apiKey}`,
-        },
-        body: JSON.stringify({ model: m.modelParam || m.id, messages: [{ role: 'user', content: 'ping' }], max_tokens: 3 }),
-      });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) return { ok: false, error: json?.error?.message || res.statusText };
-      return { ok: true, data: '连接正常' };
-    } catch (err) {
-      return { ok: false, error: (err as Error).message };
-    }
+  // ---- 第 1 段：网络可达性 ----
+  try {
+    await fetch(endpoint, { method: 'GET', mode: 'no-cors', cache: 'no-store' });
+  } catch (err) {
+    return {
+      ok: false,
+      reachable: false,
+      authorized: false,
+      latencyMs: Date.now() - started,
+      message: `网络不可达：${(err as Error).message}。请检查网络或端点地址。`,
+      stage: 'network',
+    };
+  }
+  const netMs = Date.now() - started;
+
+  if (!creds.apiKey) {
+    return {
+      ok: false,
+      reachable: true,
+      authorized: false,
+      latencyMs: netMs,
+      message: `网络已连通（${netMs}ms），但未填写 API Key，无法验证鉴权。`,
+      stage: 'auth',
+    };
   }
 
-  if (kind === 'image') {
-    try {
-      const res = await fetch(`${endpoint}/images/generations`, {
+  // ---- 第 2 段：鉴权 ----
+  try {
+    let res: Response;
+    if (kind === 'image') {
+      res = await fetch(`${endpoint}/images/generations`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${conf.creds.apiKey}`,
-        },
-        body: JSON.stringify({ model: m.modelParam || m.id, prompt: 'a red dot', n: 1 }),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${creds.apiKey}` },
+        body: JSON.stringify({ model: creds.extra?.model || m.modelParam, prompt: 'a red dot', n: 1, size: '1024x1024' }),
       });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) return { ok: false, error: json?.error?.message || res.statusText };
-      return { ok: true, data: '连接正常' };
-    } catch (err) {
-      return { ok: false, error: (err as Error).message };
+    } else {
+      res = await fetch(`${endpoint}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${creds.apiKey}` },
+        body: JSON.stringify({
+          model: creds.extra?.model || m.modelParam,
+          messages: [{ role: 'user', content: 'ping' }],
+          max_tokens: 3,
+        }),
+      });
     }
+    const latencyMs = Date.now() - started;
+    if (res.status === 401 || res.status === 403) {
+      return {
+        ok: false,
+        reachable: true,
+        authorized: false,
+        latencyMs,
+        message: `网络可达（${netMs}ms），但鉴权失败（HTTP ${res.status}）：API Key 无效或无权限。`,
+        stage: 'auth',
+      };
+    }
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      return {
+        ok: false,
+        reachable: true,
+        authorized: false,
+        latencyMs,
+        message: `网络可达（${netMs}ms），接口返回 HTTP ${res.status}：${body.slice(0, 120)}`,
+        stage: 'auth',
+      };
+    }
+    return {
+      ok: true,
+      reachable: true,
+      authorized: true,
+      latencyMs,
+      message: `全部通过：网络 ${netMs}ms，鉴权正常，接口可用（共 ${latencyMs}ms）。`,
+      stage: 'done',
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      reachable: true,
+      authorized: false,
+      latencyMs: Date.now() - started,
+      message: `网络可达但请求被拦截：${(err as Error).message}（常见原因：CORS 跨域限制）。`,
+      stage: 'auth',
+    };
   }
-  return { ok: false, error: '未知 kind' };
+}
+
+/** 无 Key 的纯网络探测（供批量测试用） */
+export async function probeEndpoint(endpoint: string): Promise<{ reachable: boolean; latencyMs: number; error?: string }> {
+  const started = Date.now();
+  const url = endpoint.replace(/\/$/, '');
+  try {
+    await fetch(url, { method: 'GET', mode: 'no-cors', cache: 'no-store' });
+    return { reachable: true, latencyMs: Date.now() - started };
+  } catch (err) {
+    return { reachable: false, latencyMs: Date.now() - started, error: (err as Error).message };
+  }
 }

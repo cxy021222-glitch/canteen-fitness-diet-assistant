@@ -1,43 +1,99 @@
 import { useState } from 'react';
-import { Settings2, AudioLines, Feather, ImageIcon, Sparkles, CheckCircle2, AlertCircle, Plug, Shield, RotateCcw } from 'lucide-react';
-import { PageHead, Panel, Chip, ActionButton } from '@/components/ui-kit';
-import { useModelConfig, listModels } from '@/lib/modelConfig';
-import { pingModel } from '@/lib/api';
-import type { ModelEntry } from '@/data/models';
+import {
+  Settings2,
+  AudioLines,
+  Feather,
+  ImageIcon,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  Plug,
+  Shield,
+  RotateCcw,
+  ExternalLink,
+  Loader2,
+  ScanSearch,
+} from 'lucide-react';
+import { PageHead, Panel, ActionButton } from '@/components/ui-kit';
+import { useModelConfig } from '@/lib/modelConfig';
+import type { ConnResult } from '@/lib/api';
+import type { ModelKind } from '@/data/models';
 
-type Tab = 'asr' | 'llm' | 'image';
-
-const TABS: { id: Tab; label: string; sub: string; icon: typeof AudioLines }[] = [
+const TABS: { id: ModelKind; label: string; sub: string; icon: typeof AudioLines }[] = [
   { id: 'asr', label: '语音转写', sub: 'ASR · 支持方言', icon: AudioLines },
-  { id: 'llm', label: '文本生成', sub: 'LLM · 流式章节撰写', icon: Feather },
-  { id: 'image', label: '图像生成', sub: '文生图 · 封面 / 插图', icon: ImageIcon },
+  { id: 'llm', label: '文本生成', sub: 'LLM · 流式撰写', icon: Feather },
+  { id: 'image', label: '图像生成', sub: '文生图 · 封面插图', icon: ImageIcon },
 ];
 
-const KIND_LABEL: Record<Tab, string> = { asr: '语音 ASR', llm: '文本 LLM', image: '图像生成' };
+const KIND_LABEL: Record<ModelKind, string> = { asr: '语音 ASR', llm: '文本 LLM', image: '图像生成' };
+
+function StageBar({ result }: { result?: ConnResult }) {
+  if (!result) return null;
+  const steps = [
+    { key: 'network', label: '网络可达', ok: result.reachable },
+    { key: 'auth', label: '鉴权通过', ok: result.authorized },
+    { key: 'done', label: '接口可用', ok: result.ok },
+  ];
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-1.5">
+        {steps.map((s, i) => (
+          <div key={s.key} className="flex items-center gap-1.5">
+            <div
+              className={
+                'flex items-center gap-1 rounded-[1px] border px-2 py-1 text-[10px] ' +
+                (s.ok ? 'border-olive/40 bg-olive/10 text-olive' : 'border-border bg-card text-muted-foreground')
+              }
+            >
+              {s.ok ? <CheckCircle2 className="size-3" /> : <XCircle className="size-3" />}
+              {s.label}
+            </div>
+            {i < steps.length - 1 && <span className="text-[10px] text-muted-foreground">→</span>}
+          </div>
+        ))}
+        <span className="ml-auto font-mono text-[10px] text-muted-foreground">{result.latencyMs}ms</span>
+      </div>
+      <p className={'text-[11px] leading-relaxed ' + (result.ok ? 'text-olive' : 'text-seal')}>{result.message}</p>
+    </div>
+  );
+}
 
 export default function SettingsPage() {
-  const { config, setModel, setCreds, toggleOffline, ready, labelOf } = useModelConfig();
-  const [tab, setTab] = useState<Tab>('llm');
-  const [pingState, setPingState] = useState<Partial<Record<Tab, string>>>({});
-  const [pingLoading, setPingLoading] = useState<Partial<Record<Tab, boolean>>>({});
+  const { config, vendorsOf, vendorOf, modelOf, credsOf, setVendor, setModel, setCreds, toggleOffline, ready, labelOf, probe, clearCreds } =
+    useModelConfig();
+  const [tab, setTab] = useState<ModelKind>('llm');
+  const [results, setResults] = useState<Partial<Record<ModelKind, ConnResult>>>({});
+  const [loading, setLoading] = useState<Partial<Record<ModelKind, boolean>>>({});
+  const [batchLoading, setBatchLoading] = useState(false);
 
-  const current = config[tab];
-  const models = listModels(tab);
-  const selected = models.find((m) => m.id === current.modelId) ?? models[0];
+  const vendors = vendorsOf(tab);
+  const vendor = vendorOf(tab);
+  const model = modelOf(tab);
+  const creds = credsOf(tab);
 
-  const onPing = async (kind: Tab) => {
-    setPingLoading((p) => ({ ...p, [kind]: true }));
-    setPingState((p) => ({ ...p, [kind]: undefined }));
-    const res = await pingModel(config, kind);
-    setPingLoading((p) => ({ ...p, [kind]: false }));
-    setPingState((p) => ({ ...p, [kind]: res.ok ? `✅ ${res.data}` : `❌ ${res.error}` }));
+  const runProbe = async (kind: ModelKind) => {
+    setLoading((p) => ({ ...p, [kind]: true }));
+    const r = await probe(kind);
+    setLoading((p) => ({ ...p, [kind]: false }));
+    setResults((p) => ({ ...p, [kind]: r }));
+  };
+
+  const runAll = async () => {
+    setBatchLoading(true);
+    for (const kind of ['asr', 'llm', 'image'] as ModelKind[]) {
+      setLoading((p) => ({ ...p, [kind]: true }));
+      const r = await probe(kind);
+      setResults((p) => ({ ...p, [kind]: r }));
+      setLoading((p) => ({ ...p, [kind]: false }));
+    }
+    setBatchLoading(false);
   };
 
   const onReset = () => {
-    if (!confirm('清空所有 API Key 并切回离线演示？')) return;
-    for (const k of ['asr', 'llm', 'image'] as Tab[]) setCreds(k, { apiKey: '', endpoint: undefined });
+    if (!confirm('清空所有厂商的 API Key 并切回离线演示？')) return;
+    for (const v of [...vendorsOf('asr'), ...vendorsOf('llm'), ...vendorsOf('image')]) clearCreds(v.id);
     toggleOffline(true);
-    setPingState({});
+    setResults({});
   };
 
   return (
@@ -45,15 +101,20 @@ export default function SettingsPage() {
       <PageHead
         eyebrow="MODEL SETTINGS"
         title="模型设置"
-        description="选模型 · 填 API · 切中文大模型"
-        actions={<Settings2 className="size-4 text-muted-foreground" />}
+        description="每家厂商可选多个模型 · 填 API Key · 三段式连通性检测"
+        actions={
+          <ActionButton variant="outline" onClick={runAll} disabled={batchLoading} loading={batchLoading}>
+            <ScanSearch className="size-3.5" />
+            {batchLoading ? '全量测试中…' : '全部测试'}
+          </ActionButton>
+        }
       />
 
-      {/* 顶部：总开关 + 三方就绪状态 */}
-      <div className="grid gap-3 lg:grid-cols-4">
+      {/* 三类就绪状态 */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Panel title="离线演示模式" eyebrow="OFFLINE">
-          <p className="mt-1 text-[11px] text-muted-foreground leading-relaxed">
-            开启时，工作台用内置模拟内容演示完整流程，不调用任何 API。关闭后才会尝试真模型。
+          <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+            开启后用内置内容演示全流程；关闭并填好 Key 才会调真实模型。
           </p>
           <button
             onClick={() => toggleOffline(!config.offlineMode)}
@@ -65,37 +126,41 @@ export default function SettingsPage() {
             }
           >
             {config.offlineMode ? <Shield className="size-3.5" /> : <Plug className="size-3.5" />}
-            {config.offlineMode ? '开启 · 离线演示' : '关闭 · 使用真实 API'}
+            {config.offlineMode ? '开启 · 离线演示' : '关闭 · 真实 API'}
           </button>
-          <button
-            onClick={onReset}
-            className="mt-2 inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-seal"
-          >
+          <button onClick={onReset} className="mt-2 inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-seal">
             <RotateCcw className="size-3" /> 全部重置
           </button>
         </Panel>
 
-        {(['asr', 'llm', 'image'] as Tab[]).map((kind) => {
+        {(['asr', 'llm', 'image'] as ModelKind[]).map((kind) => {
           const ok = ready(kind);
+          const r = results[kind];
           return (
             <Panel key={kind} title={KIND_LABEL[kind]} eyebrow={kind.toUpperCase()}>
               <div className="flex items-center gap-2">
-                {ok ? (
-                  <CheckCircle2 className="size-4 text-olive" />
-                ) : (
-                  <AlertCircle className="size-4 text-muted-foreground" />
-                )}
+                {ok ? <CheckCircle2 className="size-4 text-olive" /> : <AlertCircle className="size-4 text-muted-foreground" />}
                 <span className="text-[12px]">
                   {ok ? 'API 已就绪' : config.offlineMode ? '离线演示中' : '待配置 API'}
                 </span>
               </div>
-              <div className="mt-1 text-[11px] text-muted-foreground truncate">{labelOf(kind)}</div>
+              <div className="mt-1 truncate text-[11px] text-muted-foreground">{labelOf(kind)}</div>
+              {r ? (
+                <div className={'mt-2 flex items-center gap-1 text-[10px] ' + (r.ok ? 'text-olive' : 'text-seal')}>
+                  {r.ok ? <CheckCircle2 className="size-3" /> : <XCircle className="size-3" />}
+                  {r.stage === 'network' ? '网络不通' : r.stage === 'auth' ? '鉴权未通过' : '通过'} · {r.latencyMs}ms
+                </div>
+              ) : (
+                <button onClick={() => runProbe(kind)} className="mt-2 inline-flex items-center gap-1 text-[10px] text-seal hover:underline">
+                  <ScanSearch className="size-3" /> 测试这项
+                </button>
+              )}
             </Panel>
           );
         })}
       </div>
 
-      {/* Tab 切换 */}
+      {/* Tab */}
       <div className="flex gap-1 border-b border-border">
         {TABS.map((t) => (
           <button
@@ -114,40 +179,67 @@ export default function SettingsPage() {
         ))}
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[360px_1fr]">
-        {/* 左侧：模型选择 */}
-        <Panel title="选择模型" eyebrow="MODEL">
+      <div className="grid gap-4 xl:grid-cols-[220px_1fr_340px]">
+        {/* 厂商 */}
+        <Panel title="厂商" eyebrow="VENDOR">
+          <div className="space-y-1">
+            {vendors.map((v) => {
+              const sel = vendor.id === v.id;
+              const hasCreds = !!config.creds[v.id]?.apiKey;
+              return (
+                <button
+                  key={v.id}
+                  onClick={() => setVendor(tab, v.id)}
+                  className={
+                    'flex w-full items-center gap-2 rounded-[1px] border px-2.5 py-2 text-left text-[11px] transition-colors ' +
+                    (sel ? 'border-seal bg-seal/[0.07] text-seal' : 'border-border text-foreground hover:bg-card')
+                  }
+                >
+                  <span className="min-w-0 flex-1 truncate">{v.shortName}</span>
+                  <span className="shrink-0 text-[9px] text-muted-foreground">{v.models.length} 个</span>
+                  {hasCreds && <span className="size-1.5 shrink-0 rounded-full bg-olive" title="已填 Key" />}
+                </button>
+              );
+            })}
+          </div>
+        </Panel>
+
+        {/* 模型列表 */}
+        <Panel title={`${vendor.name} · 可选模型`} eyebrow="MODELS">
           <div className="space-y-1.5">
-            {models.map((m: ModelEntry) => {
-              const sel = current.modelId === m.id;
+            {vendor.models.map((m) => {
+              const gid = `${vendor.id}::${m.id}`;
+              const sel = config[tab].modelId === gid;
               return (
                 <button
                   key={m.id}
-                  onClick={() => setModel(tab, m.id)}
+                  onClick={() => setModel(tab, gid)}
                   className={
                     'block w-full rounded-[1px] border px-3 py-2 text-left transition-colors ' +
-                    (sel ? 'border-seal bg-seal/[0.07]' : 'border-border hover:bg-card')
+                    (sel ? 'border-seal bg-seal/[0.06]' : 'border-border hover:bg-card')
                   }
                 >
-                  <div className="flex items-center justify-between">
-                    <span className={'text-[12px] font-medium ' + (sel ? 'text-seal' : 'text-foreground')}>
-                      {m.vendor} · {m.name}
-                    </span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={'text-[12px] font-medium ' + (sel ? 'text-seal' : 'text-foreground')}>{m.name}</span>
                     {sel && <span className="label text-[9px] text-seal">当前</span>}
+                    {m.contextWindow && (
+                      <span className="rounded-sm border border-border/70 px-1.5 text-[9px] text-muted-foreground">
+                        {m.contextWindow}
+                      </span>
+                    )}
+                    {m.pricing && <span className="text-[9px] text-muted-foreground">{m.pricing}</span>}
                   </div>
-                  {m.modelParam && (
-                    <div className="mt-0.5 font-mono text-[10px] text-muted-foreground">{m.modelParam}</div>
-                  )}
+                  <div className="mt-0.5 font-mono text-[10px] text-muted-foreground">{m.modelParam}</div>
                   {m.dialects?.length ? (
                     <div className="mt-1 flex flex-wrap gap-1">
-                      {m.dialects.slice(0, 6).map((d) => (
-                        <span key={d} className="rounded-sm border border-border/70 px-1.5 py-0 text-[9px] text-muted-foreground">
+                      {m.dialects.slice(0, 7).map((d) => (
+                        <span key={d} className="rounded-sm border border-border/70 px-1.5 text-[9px] text-muted-foreground">
                           {d}
                         </span>
                       ))}
-                      {m.dialects.length > 6 && (
-                        <span className="rounded-sm border border-border/70 px-1.5 py-0 text-[9px] text-muted-foreground">
-                          +{m.dialects.length - 6}
+                      {m.dialects.length > 7 && (
+                        <span className="rounded-sm border border-border/70 px-1.5 text-[9px] text-muted-foreground">
+                          +{m.dialects.length - 7}
                         </span>
                       )}
                     </div>
@@ -159,96 +251,95 @@ export default function SettingsPage() {
           </div>
         </Panel>
 
-        {/* 右侧：API 配置 + 测试 */}
+        {/* 凭据 + 测试 */}
         <div className="space-y-4">
-          <Panel title="API 配置" eyebrow="CREDENTIALS">
-            <div className="grid gap-4 md:grid-cols-2">
+          <Panel title="API 配置" eyebrow={vendor.shortName}>
+            <div className="space-y-3">
               <div>
-                <label className="label block pb-1 text-[10px] tracking-[0.18em] text-muted-foreground">
-                  API Key（sk-... 或 Bearer Token）
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="label text-[10px] tracking-[0.18em] text-muted-foreground">API Key</label>
+                  {vendor.keyUrl && (
+                    <a
+                      href={vendor.keyUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-0.5 text-[9px] text-seal hover:underline"
+                    >
+                      去申请 <ExternalLink className="size-2.5" />
+                    </a>
+                  )}
+                </div>
                 <input
                   type="password"
-                  value={current.creds.apiKey}
+                  value={creds.apiKey}
                   onChange={(e) => setCreds(tab, { apiKey: e.target.value })}
                   placeholder="sk-xxxxxxxxxxxxxxxx"
-                  className="w-full rounded-[1px] border border-border bg-card px-3 py-2 font-mono text-[12px] focus:border-seal focus:outline-none"
+                  className="mt-1 w-full rounded-[1px] border border-border bg-card px-2.5 py-1.5 font-mono text-[11px] focus:border-seal focus:outline-none"
                 />
               </div>
 
-              {(selected?.modelParam?.startsWith('ep-') || selected?.id === 'doubao-pro') && (
+              {(vendor.id === 'doubao' || vendor.id === 'doubao-image' || model?.modelParam?.startsWith('ep-')) && (
                 <div>
-                  <label className="label block pb-1 text-[10px] tracking-[0.18em] text-muted-foreground">
-                    火山方舟推理接入点 ID
-                  </label>
+                  <label className="label text-[10px] tracking-[0.18em] text-muted-foreground">推理接入点 ID（ep-...）</label>
                   <input
-                    value={current.creds.extra?.model ?? ''}
-                    onChange={(e) =>
-                      setCreds(tab, { extra: { ...current.creds.extra, model: e.target.value } })
-                    }
+                    value={creds.extra?.model ?? ''}
+                    onChange={(e) => setCreds(tab, { extra: { ...creds.extra, model: e.target.value } })}
                     placeholder="ep-2025xxxx-xxxxx"
-                    className="w-full rounded-[1px] border border-border bg-card px-3 py-2 font-mono text-[12px] focus:border-seal focus:outline-none"
+                    className="mt-1 w-full rounded-[1px] border border-border bg-card px-2.5 py-1.5 font-mono text-[11px] focus:border-seal focus:outline-none"
                   />
                 </div>
               )}
 
-              <div className="md:col-span-2">
-                <label className="label block pb-1 text-[10px] tracking-[0.18em] text-muted-foreground">
-                  Base URL（可覆盖默认值）
-                </label>
+              <div>
+                <label className="label text-[10px] tracking-[0.18em] text-muted-foreground">Base URL</label>
                 <input
-                  value={current.creds.endpoint ?? selected.defaultEndpoint}
+                  value={creds.endpoint ?? vendor.defaultEndpoint}
                   onChange={(e) => setCreds(tab, { endpoint: e.target.value })}
-                  placeholder={selected.defaultEndpoint}
-                  className="w-full rounded-[1px] border border-border bg-card px-3 py-2 font-mono text-[12px] focus:border-seal focus:outline-none"
+                  placeholder={vendor.defaultEndpoint}
+                  className="mt-1 w-full rounded-[1px] border border-border bg-card px-2.5 py-1.5 font-mono text-[10px] focus:border-seal focus:outline-none"
                 />
-                <div className="mt-1 text-[10px] text-muted-foreground">
-                  默认：<span className="font-mono">{selected.defaultEndpoint}</span>
-                </div>
+                <div className="mt-1 truncate text-[9px] text-muted-foreground">默认：{vendor.defaultEndpoint}</div>
               </div>
-            </div>
 
-            <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-border/70 pt-4">
               <ActionButton
                 variant={ready(tab) ? 'primary' : 'outline'}
-                onClick={() => onPing(tab)}
-                disabled={!!pingLoading[tab]}
-                loading={!!pingLoading[tab]}
+                onClick={() => runProbe(tab)}
+                disabled={!!loading[tab]}
+                className="w-full justify-center"
               >
-                <Sparkles className="size-3.5" />
-                {pingLoading[tab] ? '测试中…' : '测试连通性'}
+                {loading[tab] ? <Loader2 className="size-3.5 animate-spin" /> : <ScanSearch className="size-3.5" />}
+                {loading[tab] ? '检测中…' : '测试连通性'}
               </ActionButton>
-              <div className="text-[11px] text-muted-foreground">
-                {pingState[tab] ?? '输入 API Key 后点一下测试是否能调通'}
-              </div>
             </div>
           </Panel>
 
+          <Panel title="检测结果" eyebrow="DIAGNOSTICS">
+            {results[tab] ? (
+              <StageBar result={results[tab]} />
+            ) : (
+              <p className="text-[11px] text-muted-foreground">
+                点「测试连通性」分三段检测：先看网络能否到达，再看 Key 是否有效，最后确认接口可用。
+                未填 Key 时只能测出网络是否可达。
+              </p>
+            )}
+          </Panel>
+
           <Panel title="模型能力" eyebrow="CAPABILITY">
-            <div className="flex flex-wrap gap-2">
-              <Chip className="border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                OpenAI Chat 兼容: {selected.openaiCompatible ? '是' : '否'}
-              </Chip>
-              <Chip className="border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                默认模型: <span className="font-mono">{selected.modelParam ?? '—'}</span>
-              </Chip>
-              {selected.dialects?.length && (
-                <Chip className="border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                  方言: {selected.dialects.slice(0, 6).join('、')}
-                </Chip>
-              )}
-              <Chip className="border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                端点: <span className="font-mono">{selected.defaultEndpoint}</span>
-              </Chip>
+            <div className="space-y-1.5 text-[10px] text-muted-foreground">
+              <div>厂商：{vendor.name}</div>
+              <div>模型：{model?.name ?? '—'}</div>
+              <div className="font-mono">参数：{model?.modelParam ?? '—'}</div>
+              <div>OpenAI 兼容：{vendor.openaiCompatible ? '是' : '否（需专用签名）'}</div>
+              {model?.pricing && <div>价格：{model.pricing}</div>}
             </div>
           </Panel>
 
           <Panel title="说明" eyebrow="NOTE">
-            <ul className="space-y-1 text-[12px] text-muted-foreground leading-relaxed list-disc pl-4">
-              <li>API Key 仅存浏览器 localStorage，不上传服务器；清空浏览器数据即删除。</li>
-              <li>未开启「离线演示」且已填 API Key 时，章节生成、封面/插图、转写均会调用真实模型；未填 Key 自动降级为本地模拟。</li>
-              <li>生成的回忆录内容需经讲述者与家属确认后方可付印。</li>
-              <li>如遇 CORS 拦截（浏览器报错），请换用 SiliconFlow / 智谱 / 阿里 DashScope 等开放跨域的 API 代理。</li>
+            <ul className="list-disc space-y-1 pl-4 text-[11px] leading-relaxed text-muted-foreground">
+              <li>API Key 只存浏览器 localStorage，不上传服务器。</li>
+              <li>每个厂商的 Key 独立保存，切换厂商不会丢失。</li>
+              <li>浏览器直接调用会受 CORS 限制；若被拦，请用 SiliconFlow / 阿里百炼 这类开放跨域的端点。</li>
+              <li>生成内容需经讲述者与家属确认后方可付印。</li>
             </ul>
           </Panel>
         </div>
