@@ -39,8 +39,11 @@
 4. **撰写** `/write`：按章节骨架逐字生成正文；可随时切换文风重写；写作指令（细节 / 对白 / 景物 / 克制）与事实校对并列。
 5. **出版** `/publish`：6 种封面 / 插图风格、3 种开本、A5 对开预览、章节插图网格、印制预估。
 6. **交付** `/deliver`：导出 Markdown、自包含 HTML 书稿、project.json、agent-run.json，打包 ZIP，或填入 Token 直接推送到 GitHub。
+7. **模型设置** `/settings`：为语音转写、文本生成、图像生成三类分别选择国内大模型，填入对应 API Key 与端点，三段式检测「网络可达 → 鉴权通过 → 接口可用」；未填 Key 时自动降级为离线演示。
 
-所有状态保存在浏览器 `localStorage`（`memoir-atelier-project-v1`），刷新不丢；「我的 / 交付」页可重置回演示项目。
+**多项目管理**：侧栏顶部书卡可展开项目列表，支持新建空白项目、克隆演示项目、切换与删除；每个项目的转写、章节、封面、插图在 `localStorage` 中独立存储，互不干扰。
+
+所有状态保存在浏览器 `localStorage`：项目列表 `memoir-atelier-store-v1`、单个项目 `memoir-atelier-project-v1-<id>`、模型配置 `memoir-atelier-models-v2`，刷新不丢；「我的 / 交付」页可克隆一份新的演示项目。
 
 ---
 
@@ -57,46 +60,65 @@ npm run typecheck
 
 ---
 
-## 四、设计语言
+## 四、模型与 API
+
+工作台内置国内大模型注册表（`src/data/models.ts`），三类能力各自独立配置：
+
+| 类别 | 厂商 | 可选模型数 | 说明 |
+|---|---|---|---|
+| 文本 LLM | 深度求索 / 通义 / 智谱 / Kimi / 豆包 / 文心 / 混元 / 零一 / MiniMax / 阶跃 / 硅基流动 | 11 家共 30+ | 走 OpenAI 兼容 `/chat/completions`，章节生成支持流式增量写入 |
+| 语音 ASR | 硅基流动 / 阿里云 / 腾讯云 / 科大讯飞 | 4 家共 10+ | 覆盖 8 种方言；硅基流动代理 SenseVoice / Paraformer 走 `/audio/transcriptions` |
+| 图像生成 | 豆包 Seedream / 通义万相 / 智谱 CogView / 腾讯混元 / 硅基 FLUX | 5 家共 10+ | 走 `/images/generations`，返回 base64 直接内联进封面与插图 |
+
+在 `/settings` 页：先选厂商，再选该厂商下的具体模型；**每个厂商的 API Key 独立保存**，切换不丢失；点「测试连通性」分三段给出结论（网络 / 鉴权 / 接口），「全部测试」一次跑完三类。关闭「离线演示模式」并填好 Key 后，章节生成、封面 / 插图、转写即调用真实模型；Key 为空时自动降级为本地模拟，工作台不中断。
+
+> 完整厂商与模型清单、默认端点、申请 Key 地址见 [docs/model-provider-matrix.md](docs/model-provider-matrix.md)。浏览器直连受 CORS 限制时，建议用硅基流动 / 阿里百炼等开放跨域的端点。
+
+---
+
+## 五、设计语言
 
 「私人档案馆 / 纸上编辑室」：暖纸底 `#f6f0e4`、墨黑 `#1b1712`、印章红 `#a6392b`、靛青、橄榄、旧金；Noto Serif SC 标题与正文、Noto Sans SC 界面、Space Grotesk 标签与数字；细线、纸纹、印章、页码。六个页面共享同一套色板与材质，只在版式上变化。
 
 ---
 
-## 五、图像说明
+## 六、图像
 
-封面与章节插图由 `src/components/Artwork.tsx` 的本地矢量引擎绘制：同一套场景几何按六种画风（木刻版画 / 水彩纪事 / 银盐胶片 / 水墨留白 / 复古丝网印 / 油画肖像）渲染为 SVG，离线可用、可随风格即时切换，并直接内联进导出的 HTML 书稿。
-
-生产环境可将 `artworkSvg()` 替换为真实的文生图调用（Seedream / FLUX），`prompt` 字段已按画风拼装完毕，可直接作为模型入参。
+封面与插图有两条路径：默认由 `src/components/Artwork.tsx` 的本地矢量引擎按六种画风（木刻版画 / 水彩纪事 / 银盐胶片 / 水墨留白 / 复古丝网印 / 油画肖像）渲染 SVG，离线可用、可随风格即时切换；在 `/settings` 配置图像 API 并关闭离线模式后，生成封面 / 章节插图会调用真实文生图模型，返回的 base64 存入 `cover.imageUrl` / `illustration.imageUrl` 优先显示，并直接内联进导出的 HTML 书稿。`prompt` 字段已按画风拼装完毕，可直接作为模型入参。
 
 ---
 
-## 六、目录
+## 七、目录
 
 ```
 src/
-├── app.tsx                 # 9 条路由
+├── app.tsx                    # 10 条路由（工作台 + 6 工位 + 智能体 + 技能 + 设置）
 ├── components/
-│   ├── WorkbenchShell.tsx  # 侧栏 / 顶栏 / 移动端导航
-│   ├── Artwork.tsx         # 六画风矢量插图引擎
-│   └── ui-kit.tsx          # 页面级通用组件
+│   ├── WorkbenchShell.tsx     # 侧栏 / 顶栏 / 项目选择器 / 移动端导航
+│   ├── Artwork.tsx            # 六画风矢量插图引擎
+│   └── ui-kit.tsx             # 页面级通用组件
 ├── data/
-│   ├── agents.ts           # 12 个智能体 + 5 个工位
-│   ├── skills.ts           # GitHub Skill 仓库
-│   ├── presets.ts          # 叙事 / 文风 / 画风 / 开本
-│   ├── demoProject.ts      # 演示项目《炉火与远方》
+│   ├── agents.ts              # 12 个智能体 + 5 个工位
+│   ├── skills.ts              # GitHub Skill 仓库
+│   ├── models.ts              # 国内大模型注册表（厂商 → 模型）
+│   ├── presets.ts             # 叙事 / 文风 / 画风 / 开本
+│   ├── demoProject.ts         # 演示项目《炉火与远方》
 │   └── types.ts
 ├── lib/
-│   ├── store.tsx           # 全局状态 + localStorage
-│   ├── fillers.ts          # 气口清理规则
-│   ├── deliver.ts          # Markdown / HTML / GitHub 推送
-│   └── zip.ts              # 手写 ZIP 打包
-└── pages/                  # 工作台 / 采集 / 转写 / 编排 / 撰写 / 出版 / 交付 / 智能体 / 技能
+│   ├── store.tsx              # 全局状态 + 多项目 localStorage
+│   ├── modelConfig.tsx        # 模型配置 Context
+│   ├── api.ts                 # 大模型 API 客户端 + 三段式连通性探测
+│   ├── fillers.ts             # 气口清理规则
+│   ├── deliver.ts             # Markdown / HTML / GitHub 推送
+│   └── zip.ts                 # 手写 ZIP 打包
+└── pages/                     # 工作台 / 采集 / 转写 / 编排 / 撰写 / 出版 / 交付 / 智能体 / 技能 / 设置
 ```
+
+设计文档见 [`docs/`](docs/)：[智能体矩阵](docs/agent-matrix.md)、[模型厂商选型](docs/model-provider-matrix.md)。
 
 ---
 
-## 七、边界与免责
+## 八、边界与免责
 
 - 所有转写与撰写结果均为辅助草稿，人名、年份、事件需经讲述者与家属确认后方可付印。
 - 不提供医疗、心理、法律建议；涉及创伤记忆时应由专业访谈人员在场。
