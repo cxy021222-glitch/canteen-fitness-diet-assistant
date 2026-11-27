@@ -127,7 +127,7 @@ function genId(prefix = 'proj') {
 /** 引导性初始化：用户第一次进来时，自动放一个 demo 和一个空白 */
 function bootstrap(): { store: ProjectStore; project: Project } {
   const store = readStore();
-  let summaries = [...store.summaries];
+  const summaries = [...store.summaries];
 
   // 1) 确保 demo 项目存在（内容是最新的 createInitialProject）
   let demoProject = readProject(DEMO_PROJECT_ID);

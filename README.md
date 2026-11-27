@@ -4,6 +4,8 @@
 
 演示项目：《炉火与远方》—— 陈守义口述 · 一位三线建设者的六十年。
 
+> 📄 **产品简介（给评审）**：是什么 / 面向谁 / 功能清单 + 用户使用路径流程图 + 产品截图，见 [docs/product-brief.md](docs/product-brief.md)。
+
 ---
 
 ## 一、它解决什么
@@ -114,7 +116,7 @@ src/
 └── pages/                     # 工作台 / 采集 / 转写 / 编排 / 撰写 / 出版 / 交付 / 智能体 / 技能 / 设置
 ```
 
-设计文档见 [`docs/`](docs/)：[智能体矩阵](docs/agent-matrix.md)、[模型厂商选型](docs/model-provider-matrix.md)。
+设计文档见 [`docs/`](docs/)：[产品简介](docs/product-brief.md)、[智能体矩阵](docs/agent-matrix.md)、[模型厂商选型](docs/model-provider-matrix.md)。
 
 ---
 
